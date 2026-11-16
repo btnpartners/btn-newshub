@@ -68,3 +68,14 @@ export async function fetchFeed(feed) {
   if (!res.ok) throw new Error(`${feed.source}: HTTP ${res.status}`);
   return parseRss(await res.text(), feed.source);
 }
+
+// Key used to spot the same story published twice (different URL, "UPDATE1:" prefix, "| Source" suffix).
+export function titleKey(title) {
+  return title
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/^\s*(update\s*\d*|atualiza\S*)\s*[:\-–]\s*/i, '')
+    .replace(/\s+\|\s+[^|]+$/, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}

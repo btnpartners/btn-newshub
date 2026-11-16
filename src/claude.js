@@ -68,31 +68,42 @@ Responda SOMENTE com um array JSON, um objeto por notícia: [{"id": <id>, "label
   return { results: out, usage };
 }
 
-// Pull readable paragraphs from an article page (works when not paywalled).
+// Pull the article text from its page (works when the paywall is applied in the browser).
 export async function fetchArticleText(url) {
   try {
     const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36' },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+      },
       redirect: 'follow',
     });
-    if (!res.ok) return '';
+    if (!res.ok) return { text: '', status: res.status };
     const html = await res.text();
-    const paras = [...html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)]
-      .map((m) => m[1].replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim())
-      .filter((p) => p.length > 60);
-    return paras.join('\n').slice(0, 12000);
-  } catch {
-    return '';
+    const clean = (s) => s.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"').replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(+d)).replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+    // 1) structured data, 2) the site's article-body paragraphs (Globo/Valor), 3) any long paragraphs
+    for (const m of html.matchAll(/<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)) {
+      try {
+        const items = [].concat(JSON.parse(m[1]));
+        for (const it of items) if (it && typeof it.articleBody === 'string' && it.articleBody.length > 400) return { text: clean(it.articleBody).slice(0, 15000), status: res.status };
+      } catch {}
+    }
+    const body = [...html.matchAll(/<p[^>]*class="[^"]*content-text__container[^"]*"[^>]*>([\s\S]*?)<\/p>/gi)].map((m) => clean(m[1]));
+    const paras = body.length >= 3 ? body : [...html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)].map((m) => clean(m[1])).filter((p) => p.length > 60);
+    return { text: paras.join('\n').slice(0, 15000), status: res.status };
+  } catch (e) {
+    return { text: '', status: `error ${e.message}` };
   }
 }
 
 export async function summarizeArticle(env, article) {
-  const body = await fetchArticleText(article.url);
+  const { text: body, status } = await fetchArticleText(article.url);
   const system = `Você resume notícias financeiras. Escreva em português, de forma objetiva.
 Formato:
 - 3 a 5 bullets curtos com os fatos principais (números, empresas, valores, datas). Nada além dos bullets: sem título, introdução, conclusão ou comentário sobre relevância.
 Use apenas as informações fornecidas; não invente dados. Se o texto estiver incompleto (paywall), resuma o que houver e acrescente ao final, entre parênteses, que o resumo é parcial.`;
   const user = `Título: ${article.title}\nFonte: ${article.source}\nResumo do feed: ${article.excerpt || '(nenhum)'}\n\nTexto da matéria:\n${body || '(não disponível — provavelmente paywall)'}`;
   const { text } = await callClaude(env, { system, user, maxTokens: 1000 });
-  return { summary: text.trim(), partial: !body };
+  return { summary: text.trim(), partial: !body, textChars: body.length, fetchStatus: status };
 }

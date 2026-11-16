@@ -1,4 +1,4 @@
-import { FEEDS, fetchFeed } from './feeds.js';
+import { FEEDS, fetchFeed, titleKey } from './feeds.js';
 import { refreshCompaniesIfStale, loadCompanies, findCompanyMentions } from './companies.js';
 import { labelArticles, summarizeArticle } from './claude.js';
 import { LABEL_GROUPS } from './labels.js';
@@ -35,6 +35,9 @@ async function ensureSchema(env) {
   if (schemaReady) return;
   await env.DB.batch(SCHEMA.map((s) => env.DB.prepare(s)));
   try { await env.DB.prepare("ALTER TABLE articles ADD COLUMN labels TEXT DEFAULT '[]'").run(); } catch {}
+  try { await env.DB.prepare('ALTER TABLE articles ADD COLUMN title_key TEXT').run(); } catch {}
+  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_articles_tkey ON articles (title_key)').run();
+  await dedupeExisting(env);
   schemaReady = true;
 }
 
@@ -42,6 +45,18 @@ const json = (data, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
 
 // ---------- ingestion ----------
+
+// One-off + safety net: fill title_key for older rows and drop repeated stories (keep the first).
+async function dedupeExisting(env) {
+  const { results } = await env.DB.prepare('SELECT id, title FROM articles WHERE title_key IS NULL LIMIT 2000').all();
+  if (results.length) {
+    const stmts = results.map((r) => env.DB.prepare('UPDATE articles SET title_key = ? WHERE id = ?').bind(titleKey(r.title), r.id));
+    for (let k = 0; k < stmts.length; k += 90) await env.DB.batch(stmts.slice(k, k + 90));
+  }
+  await env.DB.prepare(
+    'DELETE FROM articles WHERE title_key IS NOT NULL AND id NOT IN (SELECT MIN(id) FROM articles WHERE title_key IS NOT NULL GROUP BY title_key)'
+  ).run();
+}
 
 async function ingest(env) {
   const report = { feeds: {}, inserted: 0 };
@@ -53,9 +68,18 @@ async function ingest(env) {
     if (r.status === 'rejected') { report.feeds[name] = `error: ${r.reason?.message || r.reason}`; return; }
     report.feeds[name] = r.value.length;
     for (const it of r.value) {
+      const key = titleKey(it.title);
+      // Same story under another URL within 7 days -> skip; an "UPDATE" version refreshes the existing row.
       stmts.push(env.DB.prepare(
-        'INSERT OR IGNORE INTO articles (url, title, excerpt, source, published_at, fetched_at) VALUES (?, ?, ?, ?, ?, ?)'
-      ).bind(it.url, it.title, it.excerpt, it.source, Math.min(it.published_at, now), now));
+        `INSERT INTO articles (url, title, excerpt, source, published_at, fetched_at, title_key)
+         SELECT ?, ?, ?, ?, ?, ?, ?
+         WHERE NOT EXISTS (SELECT 1 FROM articles WHERE url = ? OR (title_key = ? AND published_at > ?))`
+      ).bind(it.url, it.title, it.excerpt, it.source, Math.min(it.published_at, now), now, key, it.url, key, now - 7 * 864e5));
+      if (/^\s*update\s*\d*\s*:/i.test(it.title)) {
+        stmts.push(env.DB.prepare(
+          'UPDATE articles SET url = ?, title = ?, excerpt = ?, summary = NULL WHERE title_key = ? AND url != ? AND title NOT LIKE ? AND NOT EXISTS (SELECT 1 FROM articles WHERE url = ?)'
+        ).bind(it.url, it.title, it.excerpt, key, it.url, it.title, it.url));
+      }
     }
   });
   for (let k = 0; k < stmts.length; k += 90) {
@@ -223,10 +247,10 @@ async function handleApi(request, env, ctx, url) {
     const used = await env.DB.prepare('SELECT COUNT(*) AS n FROM articles WHERE summarized_at > ?').bind(Date.now() - 864e5).first();
     if (used.n >= cap) return json({ error: `Limite diário de ${cap} resumos atingido` }, 429);
     try {
-      const { summary } = await summarizeArticle(env, row);
+      const { summary, textChars, fetchStatus } = await summarizeArticle(env, row);
       await env.DB.prepare('UPDATE articles SET summary = ?, summary_model = ?, summarized_at = ? WHERE id = ?')
         .bind(summary, env.CLAUDE_MODEL, Date.now(), row.id).run();
-      return json(rowOut({ ...row, summary, summary_model: env.CLAUDE_MODEL }));
+      return json({ ...rowOut({ ...row, summary, summary_model: env.CLAUDE_MODEL }), text_chars: textChars, fetch_status: fetchStatus });
     } catch (e) {
       return json({ error: e.message }, 502);
     }

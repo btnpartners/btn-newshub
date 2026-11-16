@@ -232,7 +232,7 @@ async function labelCounts(env, days = 30) {
     counts[col] = results;
   }
   const stats = await env.DB.prepare(
-    "SELECT COUNT(*) AS total, SUM(labeled) AS labeled, SUM(CASE WHEN label_status='pending' THEN 1 ELSE 0 END) AS pending FROM articles WHERE published_at > ?"
+    "SELECT COUNT(*) AS total, SUM(labeled) AS labeled, SUM(CASE WHEN label_status='pending' AND labels = '[]' AND companies = '[]' THEN 1 ELSE 0 END) AS pending FROM articles WHERE published_at > ?"
   ).bind(since).first();
   const last = await env.DB.prepare("SELECT value FROM meta WHERE key = 'last_cycle'").first();
   return { groups: LABEL_GROUPS, counts, stats, lastCycle: last ? JSON.parse(last.value) : null };

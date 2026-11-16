@@ -254,7 +254,7 @@ function card(a) {
     ...a.companies.map((s) => `<span class="chip c" data-f="company" data-v="${esc(s)}">${esc(s)}</span>`),
     ...a.candidates.filter((c) => !a.companies.includes(c)).map((s) => `<span class="chip x" title="Nome encontrado no texto, mas a IA considerou que não se refere à empresa">${esc(s)}</span>`),
   ];
-  if (a.label_status === 'pending') chips.push('<span class="ago">aguardando rotulagem…</span>');
+  if (a.label_status === 'pending' && !a.labels.length && !a.companies.length) chips.push('<span class="ago">aguardando rotulagem…</span>');
   return `<article data-id="${a.id}">
     <div class="meta">${chips.join('')}<span class="ago">${ago(a.published_at)}</span></div>
     <h2><a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.title)}</a></h2>

@@ -71,7 +71,10 @@
     .wrap { padding: 0 14px; }
     h1 { font-size: 20px; }
     .date { display: none; }
-    .filters { grid-template-columns: 1fr; }
+    .filters { grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+    select, input[type=search] { font-size: 16px; padding: 6px 8px; }
+    .bar { flex-wrap: nowrap; }
+    .actions .btn { padding: 5px 8px; font-size: 12px; }
     h2 { font-size: 17px; }
     .seg button { padding: 7px 8px; font-size: 12.5px; }
     header { position: static; }
@@ -200,6 +203,7 @@ async function loadLabels() {
     sel.append(og);
   }
   sel.value = state.label;
+  shortNames();
   const cs = $('#company'); cs.length = 1;
   for (const r of data.counts.companies || []) cs.add(new Option(`${r.label} (${r.n})`, r.label));
   if (state.company && ![...cs.options].some((o) => o.value === state.company)) cs.add(new Option(state.company, state.company));
@@ -217,6 +221,13 @@ function syncControls() {
   $('#active').innerHTML = act.join('');
 }
 $('#label').onchange = (e) => setFilter('label', e.target.value);
+function shortNames() {
+  const narrow = window.matchMedia('(max-width: 720px)').matches;
+  $('#label').options[0].text = narrow ? 'Label' : 'Label: all';
+  $('#company').options[0].text = narrow ? 'Company' : 'Company: all';
+  $('#source').options[0].text = narrow ? 'Source' : 'Source: all';
+}
+window.matchMedia('(max-width: 720px)').addEventListener('change', shortNames);
 $('#source').onchange = (e) => setFilter('source', e.target.value);
 $('#company').onchange = (e) => setFilter('company', e.target.value);
 let qTimer; $('#q').oninput = (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => setFilter('q', e.target.value.trim()), 350); };

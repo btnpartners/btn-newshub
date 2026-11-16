@@ -24,7 +24,7 @@ export async function sendArticleEmail(env, a) {
     body: JSON.stringify({
       from: env.SHARE_FROM,
       to: env.SHARE_TO.split(',').map((s) => s.trim()),
-      subject: a.title,
+      subject: `btn news | ${a.title}`,
       html,
       text,
     }),

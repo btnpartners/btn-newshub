@@ -23,7 +23,7 @@
     "CLAUDE_MODEL": "claude-haiku-5-5",
     "REQUIRE_LOGIN": "false",
     "SHARE_EMAIL": "hamilton+newsfintech@btnpartners.com",
-    "SHARE_FROM": "btn partners NewsHub <news@notify.btnpartners.com>",
+    "SHARE_FROM": "btn news <news@notify.btnpartners.com>",
     "SHARE_TO": "hamilton@btnpartners.com",
     "SHARE_LABEL": "Leads/News Fintech",
     "DAILY_EMAIL_LIMIT": "60",

@@ -64,7 +64,7 @@ async function ingest(env) {
   return report;
 }
 
-async function labelPending(env, maxArticles = 60) {
+async function labelPending(env, maxArticles = 150) {
   const { results: pending } = await env.DB.prepare(
     "SELECT id, title, excerpt FROM articles WHERE label_status = 'pending' AND label_attempts < 3 ORDER BY published_at DESC LIMIT ?"
   ).bind(maxArticles).all();

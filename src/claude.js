@@ -88,11 +88,10 @@ export async function fetchArticleText(url) {
 
 export async function summarizeArticle(env, article) {
   const body = await fetchArticleText(article.url);
-  const system = `Você resume notícias para o sócio de uma boutique de M&A focada em fintechs no Brasil. Escreva em português, de forma objetiva.
+  const system = `Você resume notícias financeiras. Escreva em português, de forma objetiva.
 Formato:
-- 3 a 5 bullets curtos com os fatos principais (números, empresas, valores, datas).
-- Uma linha final começando com "Relevância:" explicando em uma frase por que importa para fintechs/M&A (ou "baixa" se não importar).
-Use apenas as informações fornecidas; não invente dados. Se o texto estiver incompleto (paywall), resuma o que houver e diga que o resumo é parcial.`;
+- 3 a 5 bullets curtos com os fatos principais (números, empresas, valores, datas). Nada além dos bullets: sem título, introdução, conclusão ou comentário sobre relevância.
+Use apenas as informações fornecidas; não invente dados. Se o texto estiver incompleto (paywall), resuma o que houver e acrescente ao final, entre parênteses, que o resumo é parcial.`;
   const user = `Título: ${article.title}\nFonte: ${article.source}\nResumo do feed: ${article.excerpt || '(nenhum)'}\n\nTexto da matéria:\n${body || '(não disponível — provavelmente paywall)'}`;
   const { text } = await callClaude(env, { system, user, maxTokens: 1000 });
   return { summary: text.trim(), partial: !body };

@@ -282,12 +282,18 @@ $('#list').onclick = async (e) => {
   if (btn.dataset.act === 'gmail') {
     if (a.gmail_saved_at && !confirm('Já foi enviada por e-mail. Enviar de novo?')) return;
     await withSpinner(btn, async () => {
-      if (!a.summary) { try { await ensureSummary(a, el); } catch {} }
-      if (cfg.requireLogin) { await saveToGmail(a); toast(`Salvo em “${GMAIL_LABEL}” no Gmail`); }
-      else { window.location.href = mailtoLink(a); }
-      await api(`/api/articles/${a.id}/shared`, { method: 'POST' });
+      if (cfg.serverEmail) {
+        const r = await api(`/api/articles/${a.id}/email`, { method: 'POST' });
+        if (r.summary && !a.summary) { Object.assign(a, { summary: r.summary, summary_model: r.summary_model }); const sb = el.querySelector('[data-act=summary]'); sb.classList.add('done'); sb.textContent = 'Resumo Claude ✓'; el.insertAdjacentHTML('beforeend', summaryHtml(a)); }
+        toast(`Enviado para “${cfg.shareLabel || 'News Fintech'}”`);
+      } else {
+        if (!a.summary) { try { await ensureSummary(a, el); } catch {} }
+        if (cfg.requireLogin) { await saveToGmail(a); toast(`Salvo em “${GMAIL_LABEL}” no Gmail`); }
+        else { window.location.href = mailtoLink(a); }
+        await api(`/api/articles/${a.id}/shared`, { method: 'POST' });
+      }
       a.gmail_saved_at = Date.now();
-      btn.classList.add('done'); btn.textContent = cfg.requireLogin ? 'Salvo no Gmail ✓' : 'Enviado por e-mail ✓';
+      btn.classList.add('done'); btn.textContent = 'Enviado por e-mail ✓';
     }, true);
   }
 };

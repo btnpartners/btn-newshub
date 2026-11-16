@@ -2,6 +2,7 @@ import { FEEDS, fetchFeed } from './feeds.js';
 import { refreshCompaniesIfStale, loadCompanies, findCompanyMentions } from './companies.js';
 import { labelArticles, summarizeArticle } from './claude.js';
 import { LABEL_GROUPS } from './labels.js';
+import { emailEnabled, sendArticleEmail } from './email.js';
 
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS articles (
@@ -196,7 +197,7 @@ async function labelCounts(env, days = 30) {
 
 async function handleApi(request, env, ctx, url) {
   const path = url.pathname;
-  if (path === '/api/config') return json({ requireLogin: env.REQUIRE_LOGIN === 'true', googleClientId: env.GOOGLE_CLIENT_ID, shareEmail: env.SHARE_EMAIL });
+  if (path === '/api/config') return json({ requireLogin: env.REQUIRE_LOGIN === 'true', googleClientId: env.GOOGLE_CLIENT_ID, shareEmail: env.SHARE_EMAIL, serverEmail: emailEnabled(env), shareLabel: env.SHARE_LABEL });
 
   await ensureSchema(env);
   const email = await authorize(request, env);
@@ -234,6 +235,29 @@ async function handleApi(request, env, ctx, url) {
   if (m && request.method === 'POST') {
     await env.DB.prepare('UPDATE articles SET gmail_saved_at = ? WHERE id = ?').bind(Date.now(), Number(m[1])).run();
     return json({ ok: true });
+  }
+  m = path.match(/^\/api\/articles\/(\d+)\/email$/);
+  if (m && request.method === 'POST') {
+    if (!emailEnabled(env)) return json({ error: 'Envio de e-mail não configurado' }, 503);
+    const cap = Number(env.DAILY_EMAIL_LIMIT || 60);
+    const sent = await env.DB.prepare('SELECT COUNT(*) AS n FROM articles WHERE gmail_saved_at > ?').bind(Date.now() - 864e5).first();
+    if (sent.n >= cap) return json({ error: `Limite diário de ${cap} e-mails atingido` }, 429);
+    let row = await env.DB.prepare('SELECT * FROM articles WHERE id = ?').bind(Number(m[1])).first();
+    if (!row) return json({ error: 'not found' }, 404);
+    if (!row.summary) {
+      try {
+        const { summary } = await summarizeArticle(env, row);
+        await env.DB.prepare('UPDATE articles SET summary = ?, summary_model = ?, summarized_at = ? WHERE id = ?').bind(summary, env.CLAUDE_MODEL, Date.now(), row.id).run();
+        row = { ...row, summary, summary_model: env.CLAUDE_MODEL };
+      } catch (e) { console.error('summary before email failed', e.message); }
+    }
+    try {
+      await sendArticleEmail(env, rowOut(row));
+    } catch (e) {
+      return json({ error: e.message }, 502);
+    }
+    await env.DB.prepare('UPDATE articles SET gmail_saved_at = ? WHERE id = ?').bind(Date.now(), row.id).run();
+    return json({ ...rowOut(row), gmail_saved_at: Date.now() });
   }
   return json({ error: 'not found' }, 404);
 }

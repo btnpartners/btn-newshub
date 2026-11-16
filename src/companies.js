@@ -97,35 +97,44 @@ function nameVariants(name) {
   return [...variants].filter(Boolean);
 }
 
+const squash = (tokens) => tokens.join('').toLowerCase();
+
+// Index by the name with spaces removed and lowercased, so "Pagbank" = "PagBank" and "C6Bank" = "C6 Bank".
 export function buildIndex(companies) {
-  const index = new Map(); // first token -> [{ tokens, company }]
+  const index = new Map(); // squashed name -> company
   for (const c of companies) {
     for (const v of nameVariants(c.name)) {
       const tokens = tokenize(v);
       if (!tokens.length) continue;
       if (tokens.length === 1) {
-        const t = tokens[0];
-        if (t.length < 3 || GENERIC.has(t.toLowerCase()) || COLLISIONS.has(t.toLowerCase())) continue;
+        const t = tokens[0].toLowerCase();
+        if (GENERIC.has(t) || COLLISIONS.has(t)) continue;
+        if (t.length < 3) {
+          // very short names ("XP") only match when written exactly the same, in capitals
+          if (/^[A-Z0-9]{2}$/.test(tokens[0])) index.set('=' + tokens[0], c.name);
+          continue;
+        }
       }
-      const key = tokens[0];
-      if (!index.has(key)) index.set(key, []);
-      index.get(key).push({ tokens, company: c.name });
+      const key = squash(tokens);
+      if (key.length < 3 || !index.has(key)) index.set(key, c.name);
     }
   }
   return index;
 }
 
-// Case-sensitive name matching (company names are capitalised in news text).
+// A mention must start with a capitalised word (or a digit), so common lowercase words don't match.
 export function findCompanyMentions(text, index) {
   const tokens = tokenize(text);
   const found = new Set();
   for (let i = 0; i < tokens.length; i++) {
-    const cands = index.get(tokens[i]);
-    if (!cands) continue;
-    for (const { tokens: nt, company } of cands) {
-      let ok = true;
-      for (let k = 1; k < nt.length; k++) if (tokens[i + k] !== nt[k]) { ok = false; break; }
-      if (ok) found.add(company);
+    if (!/^[A-Z0-9]/.test(tokens[i])) continue;
+    const exact = index.get('=' + tokens[i]);
+    if (exact) found.add(exact);
+    let joined = '';
+    for (let k = 0; k < 4 && i + k < tokens.length; k++) {
+      joined += tokens[i + k].toLowerCase();
+      const hit = index.get(joined);
+      if (hit) found.add(hit);
     }
   }
   return [...found];

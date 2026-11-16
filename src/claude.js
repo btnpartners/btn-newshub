@@ -102,8 +102,9 @@ export async function summarizeArticle(env, article) {
   const system = `Você resume notícias financeiras. Escreva em português, de forma objetiva.
 Formato:
 - 3 a 5 bullets curtos com os fatos principais (números, empresas, valores, datas). Nada além dos bullets: sem título, introdução, conclusão ou comentário sobre relevância.
-Use apenas as informações fornecidas; não invente dados. Se o texto estiver incompleto (paywall), resuma o que houver e acrescente ao final, entre parênteses, que o resumo é parcial.`;
-  const user = `Título: ${article.title}\nFonte: ${article.source}\nResumo do feed: ${article.excerpt || '(nenhum)'}\n\nTexto da matéria:\n${body || '(não disponível — provavelmente paywall)'}`;
+Use apenas as informações fornecidas; não invente dados. Ignore avisos de assinatura/paywall que apareçam no texto.`;
+  const partialNote = body.length < 800 ? '\n\n(O texto completo não estava disponível: termine com "(resumo parcial)".)' : '';
+  const user = `Título: ${article.title}\nFonte: ${article.source}\nResumo do feed: ${article.excerpt || '(nenhum)'}\n\nTexto da matéria:\n${body || '(não disponível)'}${partialNote}`;
   const { text } = await callClaude(env, { system, user, maxTokens: 1000 });
   return { summary: text.trim(), partial: !body, textChars: body.length, fetchStatus: status };
 }

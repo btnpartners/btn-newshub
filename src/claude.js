@@ -62,7 +62,9 @@ Responda SOMENTE com um array JSON, um objeto por notícia: [{"id": <id>, "label
     const a = articles.find((x) => x.id === Number(r.id));
     if (!a) continue;
     const labels = [...new Set((r.labels || []).map((l) => valid.get(String(l).trim().toLowerCase())).filter(Boolean))];
-    const companies = (r.companies || []).filter((c) => a.candidates.includes(c));
+    const norm = (x) => String(x).toLowerCase().replace(/[^a-z0-9]/g, '');
+    const byNorm = new Map(a.candidates.map((c) => [norm(c), c]));
+    const companies = [...new Set((r.companies || []).map((c) => byNorm.get(norm(c))).filter(Boolean))];
     out.set(a.id, { labels, companies });
   }
   return { results: out, usage };

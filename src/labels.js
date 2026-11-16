@@ -12,7 +12,7 @@ export const LABEL_GROUPS = {
     'Private Equity', 'Seguros', 'Stablecoin', 'Venture Capital', 'VGBL', 'Wealth Management',
   ],
   'Licenças': ['CCTVM', 'DTVM', 'IP', 'ITP', 'PSAV', 'SCD', 'SCFI', 'VASP'],
-  'Reguladores': ['Banco Central', 'CVM', 'Susep', 'Regulação'],
+  'Reguladores': ['Banco Central', 'CMN', 'CVM', 'Susep', 'Regulação'],
   'Associações': [
     'ABAC', 'ABBAAS', 'ABBC', 'ABCD', 'ABcripto', 'ABECIP', 'ABECS', 'ABfintechs', 'ABIPAG', 'Abranet', 'ABRAC',
     'ABRACAM', 'ABRAPP', 'ABRASCA', 'ABtoken', 'ABVCAP', 'ACREFI', 'Anbima', 'Ancord', 'ANFIDC', 'CNseg', 'Febraban',
@@ -23,7 +23,7 @@ export const LABEL_GROUPS = {
 export const ALL_LABELS = Object.values(LABEL_GROUPS).flat();
 
 // Bump when labels or labeling rules change: stored articles are relabeled automatically.
-export const LABELS_VERSION = '2026-11-16e';
+export const LABELS_VERSION = '2026-11-16f';
 
 export const HINTS = {
   'IP': 'instituição de pagamento (licença do BC)',
@@ -41,5 +41,6 @@ export const HINTS = {
   'FX': 'câmbio / moedas',
   'Adquirentes': 'credenciadoras de cartões / maquininhas',
   'CNseg': 'Confederação Nacional das Seguradoras',
+  'CMN': 'Conselho Monetário Nacional',
   'Regulação': 'normas e regulação do setor financeiro',
 };

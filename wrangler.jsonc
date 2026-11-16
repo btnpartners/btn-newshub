@@ -16,13 +16,16 @@
     {
       "binding": "DB",
       "database_name": "btn-newshub",
-      "database_id": "REPLACE_WITH_D1_ID"
+      "database_id": "26c2a02c-a074-4fa4-a557-c2224ec540b5"
     }
   ],
   "vars": {
     "CLAUDE_MODEL": "claude-haiku-5-5",
+    "REQUIRE_LOGIN": "false",
+    "SHARE_EMAIL": "hamilton+newsfintech@btnpartners.com",
+    "DAILY_SUMMARY_LIMIT": "150",
     "ALLOWED_EMAILS": "hamilton@btnpartners.com",
-    "GOOGLE_CLIENT_ID": "REPLACE_WITH_GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_ID": "",
     "FINTECHHUB_URL": "https://btn-fintechhub.pages.dev/"
   },
   "observability": { "enabled": true }

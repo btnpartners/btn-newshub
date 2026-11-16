@@ -9,7 +9,6 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet" />
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   :root {
     --navy: #142033; --navy-2: #1f2d44; --blue: #4f86bd; --blue-soft: #e8f0f8;
@@ -145,8 +144,11 @@ function ago(ts) {
 function saveToken(t) { token = t; try { sessionStorage.setItem('nh_token', JSON.stringify(t)); } catch {} }
 function loadToken() { try { const t = JSON.parse(sessionStorage.getItem('nh_token') || 'null'); if (t && t.exp > Date.now() + 60000) return t; } catch {} return null; }
 
+let cfg = {};
 async function initAuth() {
-  const cfg = await fetch('/api/config').then((r) => r.json());
+  cfg = await fetch('/api/config').then((r) => r.json());
+  if (!cfg.requireLogin) { await start(); return; }
+  const gsi = document.createElement('script'); gsi.src = 'https://accounts.google.com/gsi/client'; document.head.append(gsi);
   await new Promise((res) => { const w = () => (window.google?.accounts?.oauth2 ? res() : setTimeout(w, 100)); w(); });
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: cfg.googleClientId,
@@ -168,8 +170,12 @@ function signIn(silent) {
 $('#signin').onclick = () => signIn(!!localStorage.getItem('nh_email'));
 
 async function api(path, opts = {}) {
-  if (!token || token.exp < Date.now()) { signIn(true); throw new Error('Sessão expirada — entrando novamente'); }
-  const res = await fetch(path, { ...opts, headers: { ...(opts.headers || {}), Authorization: `Bearer ${token.value}` } });
+  const headers = { ...(opts.headers || {}) };
+  if (cfg.requireLogin) {
+    if (!token || token.exp < Date.now()) { signIn(true); throw new Error('Sessão expirada — entrando novamente'); }
+    headers.Authorization = `Bearer ${token.value}`;
+  }
+  const res = await fetch(path, { ...opts, headers });
   if (res.status === 401) { sessionStorage.removeItem('nh_token'); showGate(); throw new Error('Acesso não autorizado para esta conta'); }
   const body = await res.json();
   if (!res.ok) throw new Error(body.error || `Erro ${res.status}`);
@@ -179,8 +185,8 @@ async function api(path, opts = {}) {
 async function start() {
   try {
     const me = await api('/api/me');
-    email = me.email; localStorage.setItem('nh_email', email);
-    $('#me').textContent = email;
+    email = me.email;
+    if (cfg.requireLogin) { localStorage.setItem('nh_email', email); $('#me').textContent = email; }
     $('#gate').hidden = true; $('#controls').hidden = false;
     await loadLabels();
     await reload();
@@ -266,7 +272,7 @@ function card(a) {
     <div class="actions">
       <button class="btn ${a.summary ? 'done' : ''}" data-act="summary">${a.summary ? 'Resumo Claude ✓' : 'Resumo Claude'}</button>
       <button class="btn" data-act="copy">Copiar URL</button>
-      <button class="btn ${a.gmail_saved_at ? 'done' : ''}" data-act="gmail">${a.gmail_saved_at ? 'Salvo no Gmail ✓' : 'Compartilhar por e-mail'}</button>
+      <button class="btn ${a.gmail_saved_at ? 'done' : ''}" data-act="gmail">${a.gmail_saved_at ? 'Enviado por e-mail ✓' : 'Compartilhar por e-mail'}</button>
     </div>
     ${a.summary ? summaryHtml(a) : ''}
   </article>`;
@@ -284,14 +290,14 @@ $('#list').onclick = async (e) => {
     await withSpinner(btn, async () => { await ensureSummary(a, el); });
   }
   if (btn.dataset.act === 'gmail') {
-    if (a.gmail_saved_at && !confirm('Já foi salva no Gmail. Salvar de novo?')) return;
+    if (a.gmail_saved_at && !confirm('Já foi enviada por e-mail. Enviar de novo?')) return;
     await withSpinner(btn, async () => {
       if (!a.summary) { try { await ensureSummary(a, el); } catch {} }
-      await saveToGmail(a);
-      await api(`/api/articles/${a.id}/gmail`, { method: 'POST' });
+      if (cfg.requireLogin) { await saveToGmail(a); toast(`Salvo em “${GMAIL_LABEL}” no Gmail`); }
+      else { window.location.href = mailtoLink(a); }
+      await api(`/api/articles/${a.id}/shared`, { method: 'POST' });
       a.gmail_saved_at = Date.now();
-      btn.classList.add('done'); btn.textContent = 'Salvo no Gmail ✓';
-      toast(`Salvo em “${GMAIL_LABEL}” no Gmail`);
+      btn.classList.add('done'); btn.textContent = cfg.requireLogin ? 'Salvo no Gmail ✓' : 'Enviado por e-mail ✓';
     }, true);
   }
 };
@@ -307,7 +313,17 @@ async function ensureSummary(a, el) {
   el.querySelector('.summary')?.remove(); el.insertAdjacentHTML('beforeend', summaryHtml(a));
 }
 
-// ---------- Gmail ----------
+// ---------- e-mail (no login: pre-filled email to the News Fintech address) ----------
+function mailtoLink(a) {
+  const labels = [...a.segments.map(L), ...a.subsegments.map(L), ...a.companies].join(' · ');
+  const lines = [a.title, a.url, '', `${a.source} · ${new Date(a.published_at).toLocaleString('pt-BR')}`];
+  if (labels) lines.push(`Rótulos: ${labels}`);
+  lines.push('', a.summary ? `Resumo Claude:\n${a.summary}` : (a.excerpt || ''));
+  const body = lines.join('\n');
+  return `mailto:${encodeURIComponent(cfg.shareEmail || '')}?subject=${encodeURIComponent('[News Fintech] ' + a.title)}&body=${encodeURIComponent(body.slice(0, 1800))}`;
+}
+
+// ---------- Gmail (only when login is enabled) ----------
 async function gmail(path, opts = {}) {
   const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/${path}`, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token.value}` } });
   const body = await res.json().catch(() => ({}));

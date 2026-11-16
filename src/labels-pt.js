@@ -9,7 +9,7 @@ export const PT = {
   'Capital markets and digital assets': 'Mercado de capitais e ativos digitais',
   'Financial infrastructure': 'Infraestrutura financeira',
   'Insurance': 'Seguros',
-  'Office of the CFO': 'Soluções para o CFO',
+  'Office of the CFO': 'Gestão financeira',
   'Payments': 'Pagamentos',
 
   // Banking and lending
@@ -70,7 +70,7 @@ export const PT = {
   'Corporate expenses': 'Gestão de despesas corporativas',
   'ERP': 'ERP',
   'Ecommerce platform': 'Plataforma de e-commerce',
-  'Financial management': 'Gestão financeira',
+  'Financial management': 'Planejamento financeiro (FP&A)',
   'Global payroll': 'Folha de pagamento global',
   'HRM': 'Gestão de RH',
   'POS system': 'Sistema de PDV',

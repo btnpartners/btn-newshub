@@ -147,6 +147,7 @@ async function runCycle(env) {
 
 const tokenCache = new Map();
 async function authorize(request, env) {
+  if (env.REQUIRE_LOGIN !== 'true') return 'public';
   if (env.DEV_BYPASS_EMAIL) return env.DEV_BYPASS_EMAIL; // local development only (.dev.vars)
   const auth = request.headers.get('authorization') || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
@@ -218,7 +219,7 @@ async function labelCounts(env, days = 30) {
 
 async function handleApi(request, env, ctx, url) {
   const path = url.pathname;
-  if (path === '/api/config') return json({ googleClientId: env.GOOGLE_CLIENT_ID });
+  if (path === '/api/config') return json({ requireLogin: env.REQUIRE_LOGIN === 'true', googleClientId: env.GOOGLE_CLIENT_ID, shareEmail: env.SHARE_EMAIL });
 
   await ensureSchema(env);
   const email = await authorize(request, env);
@@ -227,7 +228,12 @@ async function handleApi(request, env, ctx, url) {
   if (path === '/api/me') return json({ email });
   if (path === '/api/articles' && request.method === 'GET') return json({ articles: await listArticles(env, url.searchParams) });
   if (path === '/api/labels') return json(await labelCounts(env));
-  if (path === '/api/refresh' && request.method === 'POST') return json(await runCycle(env));
+  if (path === '/api/refresh' && request.method === 'POST') {
+    const last = await env.DB.prepare("SELECT value FROM meta WHERE key = 'last_cycle'").first();
+    const prev = last ? JSON.parse(last.value) : null;
+    if (prev && Date.now() - prev.at < 120000) return json({ ...prev, throttled: true });
+    return json(await runCycle(env));
+  }
 
   let m = path.match(/^\/api\/articles\/(\d+)\/summary$/);
   if (m && request.method === 'POST') {
@@ -235,6 +241,9 @@ async function handleApi(request, env, ctx, url) {
     if (!row) return json({ error: 'not found' }, 404);
     const force = url.searchParams.get('force') === '1';
     if (row.summary && !force) return json(rowOut(row));
+    const cap = Number(env.DAILY_SUMMARY_LIMIT || 150);
+    const used = await env.DB.prepare('SELECT COUNT(*) AS n FROM articles WHERE summarized_at > ?').bind(Date.now() - 864e5).first();
+    if (used.n >= cap) return json({ error: `Limite diário de ${cap} resumos atingido` }, 429);
     try {
       const { summary } = await summarizeArticle(env, row);
       await env.DB.prepare('UPDATE articles SET summary = ?, summary_model = ?, summarized_at = ? WHERE id = ?')
@@ -244,7 +253,7 @@ async function handleApi(request, env, ctx, url) {
       return json({ error: e.message }, 502);
     }
   }
-  m = path.match(/^\/api\/articles\/(\d+)\/gmail$/);
+  m = path.match(/^\/api\/articles\/(\d+)\/(?:gmail|shared)$/);
   if (m && request.method === 'POST') {
     await env.DB.prepare('UPDATE articles SET gmail_saved_at = ? WHERE id = ?').bind(Date.now(), Number(m[1])).run();
     return json({ ok: true });

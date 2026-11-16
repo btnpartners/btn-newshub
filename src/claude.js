@@ -40,7 +40,7 @@ function labelList() {
 
 // articles: [{ id, title, excerpt, candidates: [company names found by text match] }]
 // returns Map(id -> { labels, companies })
-export async function labelArticles(env, articles) {
+export async function labelArticles(env, articles, debug = false) {
   const valid = new Map(ALL_LABELS.map((l) => [l.toLowerCase(), l]));
   const system = `Você classifica notícias financeiras brasileiras para uma boutique de M&A focada em fintechs.
 Rótulos disponíveis (use exatamente estes nomes; o texto entre parênteses é só explicação):
@@ -57,6 +57,7 @@ Responda SOMENTE com um array JSON, um objeto por notícia: [{"id": <id>, "label
     .join('\n\n');
 
   const { text, usage } = await callClaude(env, { system, user, maxTokens: 120 * articles.length + 200 });
+  if (debug) return { raw: text, usage };
   const parsed = parseJson(text);
   const out = new Map();
   for (const r of Array.isArray(parsed) ? parsed : []) {

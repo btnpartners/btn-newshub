@@ -203,6 +203,13 @@ async function handleApi(request, env, ctx, url) {
   if (!email) return json({ error: 'unauthorized' }, 401);
 
   if (path === '/api/me') return json({ email });
+  if (path === '/api/debug-label' && url.searchParams.get('k') === 'tmp7731') {
+    const { results } = await env.DB.prepare('SELECT id, title, excerpt FROM articles ORDER BY published_at DESC LIMIT 5').all();
+    const { index } = await loadCompanies(env);
+    const batch = results.map((a) => ({ ...a, candidates: findCompanyMentions(`${a.title} ${a.excerpt || ''}`, index) }));
+    const companies = await env.DB.prepare('SELECT COUNT(*) AS n FROM companies').first();
+    return json({ companies: companies.n, batch: batch.map((b) => ({ id: b.id, title: b.title, candidates: b.candidates })), ...(await labelArticles(env, batch, true)) });
+  }
   if (path === '/api/articles' && request.method === 'GET') return json({ articles: await listArticles(env, url.searchParams) });
   if (path === '/api/labels') return json(await labelCounts(env));
   if (path === '/api/refresh' && request.method === 'POST') {

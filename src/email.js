@@ -14,10 +14,10 @@ export async function sendArticleEmail(env, a) {
   <p style="font:12px Arial,sans-serif;color:#6b7280;margin:0 0 6px">${esc(a.source)} · ${esc(date)}${labels ? ' · ' + esc(labels) : ''}</p>
   <h2 style="margin:0 0 10px;font-size:20px;line-height:1.3"><a href="${esc(a.url)}" style="color:#142033">${esc(a.title)}</a></h2>
   ${a.excerpt ? `<p style="font:14px/1.5 Arial,sans-serif;color:#374151">${esc(a.excerpt)}</p>` : ''}
-  ${a.summary ? `<div style="font:14px/1.5 Arial,sans-serif;white-space:pre-wrap;border-left:3px solid #4f86bd;padding:8px 12px;background:#f7f9fc">${esc(a.summary)}</div>` : ''}
+  ${a.summary ? `<div style="font:14px/1.55 Arial,sans-serif;white-space:pre-wrap;border-left:3px solid #4f86bd;padding:8px 12px;background:#f7f9fc">${esc(a.summary).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')}</div>` : ''}
   <p style="font:12px Arial,sans-serif;margin-top:14px"><a href="${esc(a.url)}">Abrir matéria</a> · btn partners NewsHub</p>
 </div>`;
-  const text = [a.title, a.url, '', `${a.source} · ${date}`, labels && `Rótulos: ${labels}`, '', a.summary || a.excerpt || ''].filter((x) => x !== false).join('\n');
+  const text = [a.title, a.url, '', `${a.source} · ${date}`, labels && `Rótulos: ${labels}`, '', (a.summary || a.excerpt || '').replace(/\*\*/g, '')].filter((x) => x !== false).join('\n');
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },

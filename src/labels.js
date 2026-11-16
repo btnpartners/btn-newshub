@@ -18,10 +18,13 @@ export const LABEL_GROUPS = {
     'ABRACAM', 'ABRAPP', 'ABRASCA', 'ABtoken', 'ABVCAP', 'ACREFI', 'Anbima', 'Ancord', 'ANFIDC', 'CNseg', 'Febraban',
     'Fenacap', 'FENACOR', 'Fenaprev', 'Fenasaude', 'Fenaseg', 'Zetta',
   ],
-  'Temas gerais': ['Economia', 'Educação', 'Energia', 'Infraestrutura', 'Saúde', 'Tecnologia', 'Varejo'],
+  'Temas gerais': ['Educação', 'Energia', 'Infraestrutura', 'Saúde'],
 };
 
 export const ALL_LABELS = Object.values(LABEL_GROUPS).flat();
+
+// Bump when labels or labeling rules change: stored articles are relabeled automatically.
+export const LABELS_VERSION = '2026-11-16b';
 
 export const HINTS = {
   'IP': 'instituição de pagamento (licença do BC)',

@@ -57,7 +57,8 @@
   .actions .btn { padding: 5px 10px; font-size: 12.5px; }
   .done { color: var(--ok) !important; border-color: #cfe3d6 !important; }
   .summary { background: #fff; border: 1px solid var(--line); border-left: 3px solid var(--blue); border-radius: 4px; padding: 10px 14px; margin-top: 10px; white-space: pre-wrap; font-size: 13.5px; }
-  .summary small { display: block; color: var(--muted); margin-top: 6px; font-size: 11px; }
+  .summary small.by { display: block; color: var(--muted); margin-bottom: 8px; font-size: 11px; }
+  .summary strong { color: var(--navy); }
   .empty, .gate { text-align: center; color: var(--muted); padding: 60px 0; }
   .gate h2 { font-size: 26px; }
   .more { display: flex; justify-content: center; padding: 22px 0 60px; }
@@ -267,7 +268,9 @@ function card(a) {
     ${a.summary ? summaryHtml(a) : ''}
   </article>`;
 }
-const summaryHtml = (a) => `<div class="summary">${esc(a.summary)}<small>${esc(a.summary_model || 'Claude')}</small></div>`;
+const md = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+const modelName = (m) => (m || 'claude').replace(/^claude-/, 'Claude ').replace(/-(\d+)-(\d+)$/, ' $1.$2').replace(/^Claude (\w)/, (x, c) => 'Claude ' + c.toUpperCase());
+const summaryHtml = (a) => `<div class="summary"><small class="by">Gerado por ${esc(modelName(a.summary_model))} (Anthropic)</small>${md(a.summary)}</div>`;
 
 $('#list').onclick = async (e) => {
   const chip = e.target.closest('[data-f]');

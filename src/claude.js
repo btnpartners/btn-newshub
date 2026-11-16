@@ -97,14 +97,23 @@ export async function fetchArticleText(url) {
   }
 }
 
+export const SUMMARY_VERSION = '2026-11-16b';
+
 export async function summarizeArticle(env, article) {
   const { text: body, status } = await fetchArticleText(article.url);
-  const system = `Você resume notícias financeiras. Escreva em português, de forma objetiva.
-Formato:
-- 3 a 5 bullets curtos com os fatos principais (números, empresas, valores, datas). Nada além dos bullets: sem título, introdução, conclusão ou comentário sobre relevância.
-Use apenas as informações fornecidas; não invente dados. Ignore avisos de assinatura/paywall que apareçam no texto.`;
-  const partialNote = body.length < 800 ? '\n\n(O texto completo não estava disponível: termine com "(resumo parcial)".)' : '';
+  const system = `Você resume notícias financeiras para leitura de um executivo. Escreva em português do Brasil, em prosa clara e fiel ao texto.
+Formato (Markdown simples):
+- Um parágrafo de abertura com o fato principal e os números mais importantes.
+- Em seguida, parágrafos curtos que cobrem cada aspecto relevante da matéria, cada um começando com um título curto em negrito terminado em ponto (ex.: **Perfil de uso.**, **Quem ganhou espaço.**, **Riscos.**).
+- Destaque em negrito, na primeira menção, nomes de empresas, instituições e pessoas.
+- Inclua todos os dados relevantes (valores, percentuais, datas, comparações). O tamanho deve acompanhar a matéria: uma nota curta vira 1-2 parágrafos; uma reportagem longa pode ter vários.
+- Se a matéria citar pessoas, termine com:
+**Pessoas citadas:**
+Nome — cargo e empresa/instituição (uma pessoa por linha, como descrito na matéria)
+Se ninguém for citado, omita essa seção.
+Use apenas as informações do texto; não invente nada nem acrescente opinião. Ignore avisos de assinatura/paywall.`;
+  const partialNote = body.length < 800 ? '\n\n(O texto completo não estava disponível: resuma o que houver e termine com "(resumo parcial)".)' : '';
   const user = `Título: ${article.title}\nFonte: ${article.source}\nResumo do feed: ${article.excerpt || '(nenhum)'}\n\nTexto da matéria:\n${body || '(não disponível)'}${partialNote}`;
-  const { text } = await callClaude(env, { system, user, maxTokens: 1000 });
+  const { text } = await callClaude(env, { system, user, maxTokens: 3000 });
   return { summary: text.trim(), partial: !body, textChars: body.length, fetchStatus: status };
 }

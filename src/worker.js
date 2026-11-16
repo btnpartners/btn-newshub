@@ -1,7 +1,7 @@
 import { FEEDS, fetchFeed, titleKey } from './feeds.js';
 import { refreshCompaniesIfStale, loadCompanies, findCompanyMentions } from './companies.js';
-import { labelArticles, summarizeArticle } from './claude.js';
-import { LABEL_GROUPS } from './labels.js';
+import { labelArticles, summarizeArticle, SUMMARY_VERSION } from './claude.js';
+import { LABEL_GROUPS, LABELS_VERSION } from './labels.js';
 import { emailEnabled, sendArticleEmail } from './email.js';
 
 const SCHEMA = [
@@ -38,6 +38,7 @@ async function ensureSchema(env) {
   try { await env.DB.prepare('ALTER TABLE articles ADD COLUMN title_key TEXT').run(); } catch {}
   await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_articles_tkey ON articles (title_key)').run();
   await dedupeExisting(env);
+  await applyVersions(env);
   schemaReady = true;
 }
 
@@ -45,6 +46,24 @@ const json = (data, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
 
 // ---------- ingestion ----------
+
+// When the label set or the summary format changes, relabel stored articles / drop old-format summaries.
+async function applyVersions(env) {
+  const rows = (await env.DB.prepare("SELECT key, value FROM meta WHERE key IN ('labels_version', 'summary_version')").all()).results;
+  const v = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  if (v.labels_version !== LABELS_VERSION) {
+    await env.DB.batch([
+      env.DB.prepare("UPDATE articles SET label_status = 'pending', label_attempts = 0"),
+      env.DB.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('labels_version', ?)").bind(LABELS_VERSION),
+    ]);
+  }
+  if (v.summary_version !== SUMMARY_VERSION) {
+    await env.DB.batch([
+      env.DB.prepare('UPDATE articles SET summary = NULL, summary_model = NULL'),
+      env.DB.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('summary_version', ?)").bind(SUMMARY_VERSION),
+    ]);
+  }
+}
 
 // One-off + safety net: fill title_key for older rows and drop repeated stories (keep the first).
 async function dedupeExisting(env) {

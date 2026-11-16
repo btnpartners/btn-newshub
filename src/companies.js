@@ -77,13 +77,21 @@ const strip = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '');
 const tokenize = (s) => strip(s).split(/[^A-Za-z0-9&+]+/).filter(Boolean);
 
 // Words that are too generic to count as a company mention on their own.
+// Single-word company names that collide with people/places in Brazilian news.
+const COLLISIONS = new Set(['lula', 'rio', 'brasilia', 'bond', 'center', 'warren', 'trump', 'haddad', 'galipolo', 'tarcisio', 'moraes', 'bolsonaro']);
+const PLACES = new Set(['rio', 'sao paulo', 'sp', 'rj', 'brasil', 'brazil', 'mexico', 'colombia', 'chile', 'argentina', 'peru', 'uk', 'usa', 'us', 'europe', 'latam', 'india', 'singapore', 'london', 'new york']);
+
 const GENERIC = new Set(['bank', 'banco', 'pay', 'capital', 'credit', 'credito', 'seguros', 'invest', 'digital', 'finance', 'financial', 'group', 'grupo', 'brasil', 'brazil', 'the', 'one', 'app', 'data', 'cash', 'money', 'fintech', 'global']);
 
 function nameVariants(name) {
   const variants = new Set();
   const base = name.replace(/\(([^)]*)\)/g, ' ').replace(/\s+/g, ' ').trim();
   variants.add(base);
-  for (const m of name.matchAll(/\(([^)]*)\)/g)) if (m[1].trim().length > 2) variants.add(m[1].trim());
+  // "PagSeguro (PagBank)" -> also "PagBank"; but not places like "Arbor Capital (Rio)"
+  for (const m of name.matchAll(/\(([^)]*)\)/g)) {
+    const alt = m[1].trim();
+    if (alt.length >= 5 && !PLACES.has(alt.toLowerCase())) variants.add(alt);
+  }
   // "Foo Inc", "Foo S.A." -> "Foo"
   variants.add(base.replace(/\b(inc|ltd|llc|s\.?a\.?|ltda|plc|corp|gmbh)\.?$/i, '').trim());
   return [...variants].filter(Boolean);
@@ -97,7 +105,7 @@ export function buildIndex(companies) {
       if (!tokens.length) continue;
       if (tokens.length === 1) {
         const t = tokens[0];
-        if (t.length < 3 || GENERIC.has(t.toLowerCase())) continue;
+        if (t.length < 3 || GENERIC.has(t.toLowerCase()) || COLLISIONS.has(t.toLowerCase())) continue;
       }
       const key = tokens[0];
       if (!index.has(key)) index.set(key, []);

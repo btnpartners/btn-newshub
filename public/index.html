@@ -87,11 +87,6 @@
     <div id="controls" hidden>
       <div class="bar">
         <button class="btn primary" id="refresh">↻ Update</button>
-        <div class="seg" id="mode">
-          <button data-mode="labeled" class="on">Labeled</button>
-          <button data-mode="all">All</button>
-          <button data-mode="saved">Saved</button>
-        </div>
         <input type="search" id="q" placeholder="Search by keyword" />
       </div>
       <div class="filters">
@@ -216,7 +211,6 @@ async function loadLabels() {
 function setFilter(k, v) { state[k] = v; syncControls(); reload(); }
 function syncControls() {
   $('#label').value = state.label; $('#company').value = state.company; $('#source').value = state.source;
-  document.querySelectorAll('#mode button').forEach((b) => b.classList.toggle('on', b.dataset.mode === state.mode));
   const act = [];
   for (const [k, label] of [['label', 'Label'], ['company', 'Company'], ['source', 'Source'], ['q', 'Search']]) if (state[k]) act.push(`<span class="pill" data-clear="${k}" title="Remove filter">${label}: ${esc(state[k])} ✕</span>`);
   $('#active').innerHTML = act.join('');
@@ -225,7 +219,6 @@ $('#label').onchange = (e) => setFilter('label', e.target.value);
 $('#source').onchange = (e) => setFilter('source', e.target.value);
 $('#company').onchange = (e) => setFilter('company', e.target.value);
 let qTimer; $('#q').oninput = (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => setFilter('q', e.target.value.trim()), 350); };
-$('#mode').onclick = (e) => { const b = e.target.closest('button'); if (b) setFilter('mode', b.dataset.mode); };
 $('#active').onclick = (e) => { const p = e.target.closest('[data-clear]'); if (p) { if (p.dataset.clear === 'q') $('#q').value = ''; setFilter(p.dataset.clear, ''); } };
 
 // ---------- list ----------
@@ -251,7 +244,6 @@ function card(a) {
   const chips = [
     ...a.labels.map((s) => `<span class="chip s" data-f="label" data-v="${esc(s)}">${esc(s)}</span>`),
     ...a.companies.map((s) => `<span class="chip c" data-f="company" data-v="${esc(s)}">${esc(s)}</span>`),
-    ...a.candidates.filter((c) => !a.companies.includes(c)).map((s) => `<span class="chip x" title="Nome encontrado no texto, mas a IA considerou que não se refere à empresa">${esc(s)}</span>`),
   ];
   if (a.label_status === 'pending' && !a.labels.length && !a.companies.length) chips.push('<span class="ago">aguardando rotulagem…</span>');
   return `<article data-id="${a.id}">

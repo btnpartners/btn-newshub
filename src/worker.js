@@ -96,7 +96,7 @@ async function ingest(env) {
       ).bind(it.url, it.title, it.excerpt, it.source, Math.min(it.published_at, now), now, key, it.url, key, now - 7 * 864e5));
       if (/^\s*update\s*\d*\s*:/i.test(it.title)) {
         stmts.push(env.DB.prepare(
-          'UPDATE articles SET url = ?, title = ?, excerpt = ?, summary = NULL WHERE title_key = ? AND url != ? AND title NOT LIKE ? AND NOT EXISTS (SELECT 1 FROM articles WHERE url = ?)'
+          'UPDATE articles SET url = ?, title = ?, excerpt = ?, summary = NULL WHERE title_key = ? AND url != ? AND title != ? AND NOT EXISTS (SELECT 1 FROM articles WHERE url = ?)'
         ).bind(it.url, it.title, it.excerpt, key, it.url, it.title, it.url));
       }
     }

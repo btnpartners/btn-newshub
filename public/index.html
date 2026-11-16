@@ -30,12 +30,12 @@
   .btn:hover { border-color: #c9c2b5; }
   .btn.primary { background: var(--navy); color: #fff; border-color: var(--navy); }
   .btn:disabled { opacity: .55; cursor: default; }
-  select, input[type=search] { border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 7px 10px; min-width: 0; }
+  select, input[type=search] { border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 7px 10px; min-width: 0; height: 36px; color: var(--text); }
   input[type=search] { flex: 1 1 180px; }
   .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: #fff; }
   .seg button { border: 0; background: transparent; padding: 7px 11px; cursor: pointer; color: var(--muted); }
   .seg button.on { background: var(--navy); color: #fff; }
-  .filters { display: grid; grid-template-columns: 2fr 1.5fr 1fr; gap: 8px; padding-bottom: 12px; }
+  .filters { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; padding-bottom: 12px; }
   .filters select, .filters input { width: 100%; }
   .stats { font-size: 12px; color: var(--muted); padding: 10px 0 4px; }
   .active-filters { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0 0; }
@@ -70,8 +70,7 @@
     .wrap { padding: 0 14px; }
     h1 { font-size: 20px; }
     .date { display: none; }
-    .filters { grid-template-columns: 1fr 1fr; }
-    .filters #label { grid-column: 1 / -1; }
+    .filters { grid-template-columns: 1fr; }
     h2 { font-size: 17px; }
     .seg button { padding: 7px 8px; font-size: 12.5px; }
     header { position: static; }
@@ -87,19 +86,18 @@
     </div>
     <div id="controls" hidden>
       <div class="bar">
-        <button class="btn primary" id="refresh">↻ Atualizar</button>
+        <button class="btn primary" id="refresh">↻ Update</button>
         <div class="seg" id="mode">
-          <button data-mode="labeled" class="on">Rotuladas</button>
-          <button data-mode="all">Todas</button>
-          <button data-mode="saved">Salvas</button>
+          <button data-mode="labeled" class="on">Labeled</button>
+          <button data-mode="all">All</button>
+          <button data-mode="saved">Saved</button>
         </div>
-        <input type="search" id="q" placeholder="Buscar palavra-chave" />
+        <input type="search" id="q" placeholder="Search by keyword" />
       </div>
       <div class="filters">
-        <select id="label"><option value="">Rótulo: todos</option></select>
-        <input id="company" list="companies" placeholder="Empresa" />
-        <select id="source"><option value="">Fonte: todas</option></select>
-        <datalist id="companies"></datalist>
+        <select id="label"><option value="">Label: all</option></select>
+        <select id="company"><option value="">Company: all</option></select>
+        <select id="source"><option value="">Source: all</option></select>
       </div>
     </div>
   </div>
@@ -206,24 +204,26 @@ async function loadLabels() {
     sel.append(og);
   }
   sel.value = state.label;
-  const dl = $('#companies'); dl.innerHTML = '';
-  for (const r of data.counts.companies || []) dl.append(new Option(`${r.n} notícias`, r.label));
+  const cs = $('#company'); cs.length = 1;
+  for (const r of data.counts.companies || []) cs.add(new Option(`${r.label} (${r.n})`, r.label));
+  if (state.company && ![...cs.options].some((o) => o.value === state.company)) cs.add(new Option(state.company, state.company));
+  cs.value = state.company;
   const st = data.stats || {};
-  const last = data.lastCycle?.at ? new Date(data.lastCycle.at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—';
+  const last = data.lastCycle?.at ? new Date(data.lastCycle.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '—';
   const pct = st.total ? Math.round((100 * (st.labeled || 0)) / st.total) : 0;
-  $('#stats').textContent = `Últimos 30 dias: ${st.total || 0} notícias coletadas · ${st.labeled || 0} rotuladas (${pct}%)${st.pending ? ` · ${st.pending} aguardando rotulagem` : ''} · última coleta ${last}`;
+  $('#stats').textContent = `Last 30 days: ${st.total || 0} articles collected · ${st.labeled || 0} labeled (${pct}%)${st.pending ? ` · ${st.pending} waiting for labels` : ''} · last update ${last}`;
 }
 function setFilter(k, v) { state[k] = v; syncControls(); reload(); }
 function syncControls() {
   $('#label').value = state.label; $('#company').value = state.company; $('#source').value = state.source;
   document.querySelectorAll('#mode button').forEach((b) => b.classList.toggle('on', b.dataset.mode === state.mode));
   const act = [];
-  for (const [k, label] of [['label', 'Rótulo'], ['company', 'Empresa'], ['source', 'Fonte'], ['q', 'Busca']]) if (state[k]) act.push(`<span class="pill" data-clear="${k}" title="Remover filtro">${label}: ${esc(state[k])} ✕</span>`);
+  for (const [k, label] of [['label', 'Label'], ['company', 'Company'], ['source', 'Source'], ['q', 'Search']]) if (state[k]) act.push(`<span class="pill" data-clear="${k}" title="Remove filter">${label}: ${esc(state[k])} ✕</span>`);
   $('#active').innerHTML = act.join('');
 }
 $('#label').onchange = (e) => setFilter('label', e.target.value);
 $('#source').onchange = (e) => setFilter('source', e.target.value);
-$('#company').onchange = (e) => setFilter('company', e.target.value.trim());
+$('#company').onchange = (e) => setFilter('company', e.target.value);
 let qTimer; $('#q').oninput = (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => setFilter('q', e.target.value.trim()), 350); };
 $('#mode').onclick = (e) => { const b = e.target.closest('button'); if (b) setFilter('mode', b.dataset.mode); };
 $('#active').onclick = (e) => { const p = e.target.closest('[data-clear]'); if (p) { if (p.dataset.clear === 'q') $('#q').value = ''; setFilter(p.dataset.clear, ''); } };
@@ -361,7 +361,7 @@ $('#refresh').onclick = async () => {
   await withSpinner(b, async () => {
     const r = await api('/api/refresh', { method: 'POST' });
     const errs = Object.entries(r.ingest?.feeds || {}).filter(([, v]) => typeof v === 'string');
-    toast(`${r.ingest?.inserted || 0} novas · ${r.label?.labeled || 0} rotuladas${errs.length ? ` · erro em ${errs.map((e) => e[0]).join(', ')}` : ''}`, 4000);
+    toast(r.throttled ? 'Updated less than 2 minutes ago' : `${r.ingest?.inserted || 0} new · ${r.label?.labeled || 0} labeled${errs.length ? ` · error in ${errs.map((e) => e[0]).join(', ')}` : ''}`, 4000);
     await loadLabels(); await reload();
   });
 };

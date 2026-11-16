@@ -4,23 +4,22 @@ const API = 'https://api.anthropic.com/v1/messages';
 
 async function callClaude(env, { system, user, maxTokens }) {
   if (!env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not set');
-  const res = await fetch(API, {
+  const send = (body) => fetch(API, {
     method: 'POST',
-    headers: {
-      'x-api-key': env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: env.CLAUDE_MODEL,
-      max_tokens: maxTokens,
-      system,
-      messages: [{ role: 'user', content: user }],
-    }),
+    headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    body: JSON.stringify(body),
   });
-  const body = await res.json().catch(() => ({}));
+  const base = { model: env.CLAUDE_MODEL, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] };
+  // Labeling and summaries are simple tasks: no extended thinking (it would use up the token budget).
+  let res = await send({ ...base, thinking: { type: 'disabled' } });
+  let body = await res.json().catch(() => ({}));
+  if (res.status === 400 && /thinking/i.test(body?.error?.message || '')) {
+    res = await send({ ...base, max_tokens: maxTokens + 4000 });
+    body = await res.json().catch(() => ({}));
+  }
   if (!res.ok) throw new Error(`Claude API ${res.status}: ${body?.error?.message || 'error'}`);
   const text = (body.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+  if (!text.trim()) throw new Error(`Claude returned no text (stop: ${body.stop_reason})`);
   return { text, usage: body.usage || {} };
 }
 
@@ -56,7 +55,7 @@ Responda SOMENTE com um array JSON, um objeto por notícia: [{"id": <id>, "label
     .map((a) => `id ${a.id}\nTítulo: ${a.title}\nResumo: ${a.excerpt || '(nenhum)'}\nCandidatas: ${a.candidates.length ? a.candidates.join(', ') : '(nenhuma)'}`)
     .join('\n\n');
 
-  const { text, usage } = await callClaude(env, { system, user, maxTokens: 120 * articles.length + 200 });
+  const { text, usage } = await callClaude(env, { system, user, maxTokens: 150 * articles.length + 500 });
   if (debug) return { raw: text, usage };
   const parsed = parseJson(text);
   const out = new Map();
@@ -96,6 +95,6 @@ Formato:
 - Uma linha final começando com "Relevância:" explicando em uma frase por que importa para fintechs/M&A (ou "baixa" se não importar).
 Use apenas as informações fornecidas; não invente dados. Se o texto estiver incompleto (paywall), resuma o que houver e diga que o resumo é parcial.`;
   const user = `Título: ${article.title}\nFonte: ${article.source}\nResumo do feed: ${article.excerpt || '(nenhum)'}\n\nTexto da matéria:\n${body || '(não disponível — provavelmente paywall)'}`;
-  const { text } = await callClaude(env, { system, user, maxTokens: 600 });
+  const { text } = await callClaude(env, { system, user, maxTokens: 1000 });
   return { summary: text.trim(), partial: !body };
 }

@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>btn partners • NewsHub</title>
+<meta name="robots" content="noindex, nofollow" />
+<link rel="icon" href="/favicon.png" type="image/png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet" />
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root {
+    --navy: #142033; --navy-2: #1f2d44; --blue: #4f86bd; --blue-soft: #e8f0f8;
+    --gold-soft: #f5efe2; --gold: #8a6d2f; --cream: #faf8f4; --line: #e6e1d8;
+    --muted: #6b7280; --text: #1a1f2b; --ok: #2f7a4f;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--cream); color: var(--text); font: 14px/1.5 Inter, system-ui, sans-serif; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 20px; }
+  header { position: sticky; top: 0; z-index: 10; background: rgba(250,248,244,.97); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0 10px; }
+  h1 { font: 600 24px 'Playfair Display', Georgia, serif; margin: 0; color: var(--navy); white-space: nowrap; }
+  h1 span { color: var(--blue); }
+  .date { color: var(--muted); font-size: 12px; text-align: right; }
+  .me { font-size: 12px; color: var(--muted); }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-bottom: 12px; }
+  button, select, input { font: inherit; }
+  .btn { border: 1px solid var(--line); background: #fff; color: var(--text); border-radius: 6px; padding: 7px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .btn:hover { border-color: #c9c2b5; }
+  .btn.primary { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .btn:disabled { opacity: .55; cursor: default; }
+  select, input[type=search] { border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 7px 10px; min-width: 0; }
+  input[type=search] { flex: 1 1 180px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: #fff; }
+  .seg button { border: 0; background: transparent; padding: 7px 11px; cursor: pointer; color: var(--muted); }
+  .seg button.on { background: var(--navy); color: #fff; }
+  .filters { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; padding-bottom: 12px; }
+  .filters select, .filters input { width: 100%; }
+  .stats { font-size: 12px; color: var(--muted); padding: 10px 0 4px; }
+  .active-filters { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0 0; }
+  .pill { background: var(--navy); color: #fff; border-radius: 999px; padding: 2px 10px; font-size: 12px; cursor: pointer; }
+  article { border-bottom: 1px solid var(--line); padding: 18px 0; }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .chip { font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; border-radius: 3px; padding: 2px 7px; cursor: pointer; border: 1px solid transparent; }
+  .chip.s { background: var(--navy); color: #fff; }
+  .chip.d { background: var(--blue-soft); color: #24507e; }
+  .chip.c { background: var(--gold-soft); color: var(--gold); border-color: #eadfc6; text-transform: none; letter-spacing: 0; font-size: 11.5px; }
+  .chip.x { background: transparent; color: #9aa0a8; border-color: var(--line); text-decoration: line-through; text-transform: none; letter-spacing: 0; font-size: 11px; cursor: help; }
+  .ago { font-size: 12px; color: var(--muted); }
+  h2 { font: 600 19px/1.3 'Playfair Display', Georgia, serif; margin: 2px 0 6px; }
+  h2 a { color: var(--navy); text-decoration: none; }
+  h2 a:hover { text-decoration: underline; }
+  .excerpt { color: #4b5563; margin: 0 0 6px; }
+  .src { font-size: 12px; color: var(--muted); font-weight: 500; margin-bottom: 8px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .actions .btn { padding: 5px 10px; font-size: 12.5px; }
+  .done { color: var(--ok) !important; border-color: #cfe3d6 !important; }
+  .summary { background: #fff; border: 1px solid var(--line); border-left: 3px solid var(--blue); border-radius: 4px; padding: 10px 14px; margin-top: 10px; white-space: pre-wrap; font-size: 13.5px; }
+  .summary small { display: block; color: var(--muted); margin-top: 6px; font-size: 11px; }
+  .empty, .gate { text-align: center; color: var(--muted); padding: 60px 0; }
+  .gate h2 { font-size: 26px; }
+  .more { display: flex; justify-content: center; padding: 22px 0 60px; }
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--navy); color: #fff; padding: 9px 16px; border-radius: 6px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90vw; }
+  .toast.show { opacity: 1; }
+  .spin { width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; display: inline-block; animation: s .7s linear infinite; }
+  @keyframes s { to { transform: rotate(360deg); } }
+  @media (max-width: 720px) {
+    .wrap { padding: 0 14px; }
+    h1 { font-size: 20px; }
+    .date { display: none; }
+    .filters { grid-template-columns: 1fr 1fr; }
+    h2 { font-size: 17px; }
+    .seg button { padding: 7px 8px; font-size: 12.5px; }
+    header { position: static; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <h1>btn partners <span>•</span> NewsHub</h1>
+      <div><div class="date" id="today"></div><div class="me" id="me"></div></div>
+    </div>
+    <div id="controls" hidden>
+      <div class="bar">
+        <button class="btn primary" id="refresh">↻ Atualizar</button>
+        <div class="seg" id="mode">
+          <button data-mode="labeled" class="on">Rotuladas</button>
+          <button data-mode="unlabeled" title="Notícias que a IA descartou (sem rótulo)">Sem rótulo</button>
+          <button data-mode="all">Todas</button>
+          <button data-mode="saved">Salvas</button>
+        </div>
+        <input type="search" id="q" placeholder="Buscar palavra-chave" />
+      </div>
+      <div class="filters">
+        <select id="segment"><option value="">Segmento: todos</option></select>
+        <select id="sub"><option value="">Subsegmento: todos</option></select>
+        <input id="company" list="companies" placeholder="Empresa" />
+        <select id="source"><option value="">Fonte: todas</option></select>
+        <datalist id="companies"></datalist>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="gate" class="gate" hidden>
+    <h2>NewsHub</h2>
+    <p>Entre com sua conta Google btn partners para ver as notícias.</p>
+    <button class="btn primary" id="signin">Entrar com Google</button>
+  </div>
+  <div class="stats" id="stats"></div>
+  <div class="active-filters" id="active"></div>
+  <div id="list"></div>
+  <div class="more" id="more" hidden><button class="btn" id="moreBtn">Carregar mais</button></div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const SOURCES = ['Valor Econômico', 'Pipeline Valor', 'Exame', 'Brazil Journal', 'Finsiders Brasil'];
+const SCOPES = 'openid email https://www.googleapis.com/auth/gmail.insert https://www.googleapis.com/auth/gmail.labels';
+const GMAIL_LABEL = 'News Fintech';
+const state = { mode: 'labeled', segment: '', sub: '', company: '', source: '', q: '', items: [], taxonomy: {}, loading: false, done: false };
+let token = null, tokenClient = null, email = null, gmailLabelId = null;
+
+$('#today').textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+for (const s of SOURCES) $('#source').add(new Option(s, s));
+
+function toast(msg, ms = 2600) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), ms); }
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function ago(ts) {
+  const m = Math.round((Date.now() - ts) / 60000);
+  if (m < 60) return `${Math.max(m, 1)} min atrás`;
+  const h = Math.round(m / 60); if (h < 24) return `${h}h atrás`;
+  const d = Math.round(h / 24); return d === 1 ? 'ontem' : `${d} dias atrás`;
+}
+
+// ---------- Google sign-in ----------
+function saveToken(t) { token = t; try { sessionStorage.setItem('nh_token', JSON.stringify(t)); } catch {} }
+function loadToken() { try { const t = JSON.parse(sessionStorage.getItem('nh_token') || 'null'); if (t && t.exp > Date.now() + 60000) return t; } catch {} return null; }
+
+async function initAuth() {
+  const cfg = await fetch('/api/config').then((r) => r.json());
+  await new Promise((res) => { const w = () => (window.google?.accounts?.oauth2 ? res() : setTimeout(w, 100)); w(); });
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: cfg.googleClientId,
+    scope: SCOPES,
+    callback: async (resp) => {
+      if (resp.error) { toast('Login cancelado'); return; }
+      saveToken({ value: resp.access_token, exp: Date.now() + (resp.expires_in - 60) * 1000 });
+      await start();
+    },
+  });
+  const t = loadToken();
+  if (t) { token = t; await start(); } else showGate();
+}
+function showGate() { $('#gate').hidden = false; $('#controls').hidden = true; }
+function signIn(silent) {
+  const hint = localStorage.getItem('nh_email') || undefined;
+  tokenClient.requestAccessToken({ prompt: silent ? '' : 'consent', login_hint: hint });
+}
+$('#signin').onclick = () => signIn(!!localStorage.getItem('nh_email'));
+
+async function api(path, opts = {}) {
+  if (!token || token.exp < Date.now()) { signIn(true); throw new Error('Sessão expirada — entrando novamente'); }
+  const res = await fetch(path, { ...opts, headers: { ...(opts.headers || {}), Authorization: `Bearer ${token.value}` } });
+  if (res.status === 401) { sessionStorage.removeItem('nh_token'); showGate(); throw new Error('Acesso não autorizado para esta conta'); }
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error || `Erro ${res.status}`);
+  return body;
+}
+
+async function start() {
+  try {
+    const me = await api('/api/me');
+    email = me.email; localStorage.setItem('nh_email', email);
+    $('#me').textContent = email;
+    $('#gate').hidden = true; $('#controls').hidden = false;
+    await loadLabels();
+    await reload();
+  } catch (e) { toast(e.message, 4000); }
+}
+
+// ---------- labels / filters ----------
+async function loadLabels() {
+  const data = await api('/api/labels');
+  state.taxonomy = data.taxonomy || {};
+  const cnt = (col) => Object.fromEntries((data.counts[col] || []).map((r) => [r.label, r.n]));
+  state.counts = { s: cnt('segments'), d: cnt('subsegments'), c: cnt('companies') };
+  const seg = $('#segment'); seg.length = 1;
+  for (const s of Object.keys(state.taxonomy)) seg.add(new Option(`${s} (${state.counts.s[s] || 0})`, s));
+  seg.value = state.segment;
+  fillSubs();
+  const dl = $('#companies'); dl.innerHTML = '';
+  for (const r of data.counts.companies || []) dl.append(new Option(`${r.n} notícias`, r.label));
+  const st = data.stats || {};
+  const last = data.lastCycle?.at ? new Date(data.lastCycle.at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—';
+  const pct = st.total ? Math.round((100 * (st.labeled || 0)) / st.total) : 0;
+  $('#stats').textContent = `Últimos 30 dias: ${st.total || 0} notícias coletadas · ${st.labeled || 0} rotuladas (${pct}%)${st.pending ? ` · ${st.pending} aguardando rotulagem` : ''} · última coleta ${last}`;
+}
+function fillSubs() {
+  const sub = $('#sub'); sub.length = 1;
+  const segs = state.segment ? [state.segment] : Object.keys(state.taxonomy);
+  for (const s of segs) {
+    const g = document.createElement('optgroup'); g.label = s;
+    for (const d of state.taxonomy[s] || []) g.append(new Option(`${d}${state.counts?.d[d] ? ` (${state.counts.d[d]})` : ''}`, d));
+    sub.append(g);
+  }
+  sub.value = state.sub;
+}
+function setFilter(k, v) { state[k] = v; if (k === 'segment') { state.sub = ''; fillSubs(); } syncControls(); reload(); }
+function syncControls() {
+  $('#segment').value = state.segment; $('#sub').value = state.sub; $('#company').value = state.company; $('#source').value = state.source;
+  document.querySelectorAll('#mode button').forEach((b) => b.classList.toggle('on', b.dataset.mode === state.mode));
+  const act = [];
+  for (const [k, label] of [['segment', 'Segmento'], ['sub', 'Subsegmento'], ['company', 'Empresa'], ['source', 'Fonte'], ['q', 'Busca']]) if (state[k]) act.push(`<span class="pill" data-clear="${k}" title="Remover filtro">${label}: ${esc(state[k])} ✕</span>`);
+  $('#active').innerHTML = act.join('');
+}
+$('#segment').onchange = (e) => setFilter('segment', e.target.value);
+$('#sub').onchange = (e) => setFilter('sub', e.target.value);
+$('#source').onchange = (e) => setFilter('source', e.target.value);
+$('#company').onchange = (e) => setFilter('company', e.target.value.trim());
+let qTimer; $('#q').oninput = (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => setFilter('q', e.target.value.trim()), 350); };
+$('#mode').onclick = (e) => { const b = e.target.closest('button'); if (b) setFilter('mode', b.dataset.mode); };
+$('#active').onclick = (e) => { const p = e.target.closest('[data-clear]'); if (p) { if (p.dataset.clear === 'q') $('#q').value = ''; setFilter(p.dataset.clear, ''); } };
+
+// ---------- list ----------
+async function reload() { state.items = []; state.done = false; $('#list').innerHTML = ''; await loadMore(); }
+async function loadMore() {
+  if (state.loading || state.done) return;
+  state.loading = true; $('#moreBtn').disabled = true;
+  try {
+    const p = new URLSearchParams({ mode: state.mode, limit: '40' });
+    for (const [k, param] of [['segment', 'segment'], ['sub', 'sub'], ['company', 'company'], ['source', 'source'], ['q', 'q']]) if (state[k]) p.set(param, state[k]);
+    const last = state.items[state.items.length - 1]; if (last) p.set('before', last.published_at);
+    const { articles } = await api(`/api/articles?${p}`);
+    state.items.push(...articles);
+    if (articles.length < 40) state.done = true;
+    $('#list').insertAdjacentHTML('beforeend', articles.map(card).join(''));
+    if (!state.items.length) $('#list').innerHTML = `<div class="empty">Nenhuma notícia com esses filtros.</div>`;
+  } catch (e) { toast(e.message, 4000); }
+  state.loading = false; $('#moreBtn').disabled = false; $('#more').hidden = state.done;
+}
+$('#moreBtn').onclick = loadMore;
+
+function card(a) {
+  const chips = [
+    ...a.segments.map((s) => `<span class="chip s" data-f="segment" data-v="${esc(s)}">${esc(s)}</span>`),
+    ...a.subsegments.map((s) => `<span class="chip d" data-f="sub" data-v="${esc(s)}">${esc(s)}</span>`),
+    ...a.companies.map((s) => `<span class="chip c" data-f="company" data-v="${esc(s)}">${esc(s)}</span>`),
+    ...a.candidates.filter((c) => !a.companies.includes(c)).map((s) => `<span class="chip x" title="Nome encontrado no texto, mas a IA considerou que não se refere à empresa">${esc(s)}</span>`),
+  ];
+  if (a.label_status === 'pending') chips.push('<span class="ago">aguardando rotulagem…</span>');
+  return `<article data-id="${a.id}">
+    <div class="meta">${chips.join('')}<span class="ago">${ago(a.published_at)}</span></div>
+    <h2><a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.title)}</a></h2>
+    ${a.excerpt ? `<p class="excerpt">${esc(a.excerpt)}</p>` : ''}
+    <div class="src">${esc(a.source)}</div>
+    <div class="actions">
+      <button class="btn ${a.summary ? 'done' : ''}" data-act="summary">${a.summary ? 'Resumo Claude ✓' : 'Resumo Claude'}</button>
+      <button class="btn" data-act="copy">Copiar URL</button>
+      <button class="btn ${a.gmail_saved_at ? 'done' : ''}" data-act="gmail">${a.gmail_saved_at ? 'Salvo no Gmail ✓' : 'Compartilhar por e-mail'}</button>
+    </div>
+    ${a.summary ? summaryHtml(a) : ''}
+  </article>`;
+}
+const summaryHtml = (a) => `<div class="summary">${esc(a.summary)}<small>${esc(a.summary_model || 'Claude')}</small></div>`;
+
+$('#list').onclick = async (e) => {
+  const chip = e.target.closest('[data-f]');
+  if (chip) { if (chip.dataset.f === 'segment') { state.sub = ''; } setFilter(chip.dataset.f, chip.dataset.v); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+  const btn = e.target.closest('[data-act]'); if (!btn) return;
+  const el = btn.closest('article'); const a = state.items.find((x) => x.id === Number(el.dataset.id));
+  if (btn.dataset.act === 'copy') { await navigator.clipboard.writeText(a.url); toast('URL copiada'); }
+  if (btn.dataset.act === 'summary') {
+    if (a.summary) { const s = el.querySelector('.summary'); if (s) s.hidden = !s.hidden; return; }
+    await withSpinner(btn, async () => { await ensureSummary(a, el); });
+  }
+  if (btn.dataset.act === 'gmail') {
+    if (a.gmail_saved_at && !confirm('Já foi salva no Gmail. Salvar de novo?')) return;
+    await withSpinner(btn, async () => {
+      if (!a.summary) { try { await ensureSummary(a, el); } catch {} }
+      await saveToGmail(a);
+      await api(`/api/articles/${a.id}/gmail`, { method: 'POST' });
+      a.gmail_saved_at = Date.now();
+      btn.classList.add('done'); btn.textContent = 'Salvo no Gmail ✓';
+      toast(`Salvo em “${GMAIL_LABEL}” no Gmail`);
+    }, true);
+  }
+};
+async function withSpinner(btn, fn, keepText) {
+  const old = btn.innerHTML; btn.disabled = true; btn.innerHTML = `<span class="spin"></span> ${btn.textContent}`;
+  try { await fn(); } catch (err) { toast(err.message, 4500); btn.innerHTML = old; }
+  btn.disabled = false; if (btn.querySelector('.spin')) btn.innerHTML = old;
+}
+async function ensureSummary(a, el) {
+  const r = await api(`/api/articles/${a.id}/summary`, { method: 'POST' });
+  Object.assign(a, { summary: r.summary, summary_model: r.summary_model });
+  const b = el.querySelector('[data-act=summary]'); b.classList.add('done'); b.textContent = 'Resumo Claude ✓';
+  el.querySelector('.summary')?.remove(); el.insertAdjacentHTML('beforeend', summaryHtml(a));
+}
+
+// ---------- Gmail ----------
+async function gmail(path, opts = {}) {
+  const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/${path}`, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token.value}` } });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(`Gmail: ${body.error?.message || res.status}`);
+  return body;
+}
+async function labelId() {
+  if (gmailLabelId) return gmailLabelId;
+  const { labels = [] } = await gmail('labels');
+  const hit = labels.find((l) => l.name.toLowerCase() === GMAIL_LABEL.toLowerCase());
+  gmailLabelId = hit ? hit.id : (await gmail('labels', { method: 'POST', body: JSON.stringify({ name: GMAIL_LABEL, labelListVisibility: 'labelShow', messageListVisibility: 'show' }) })).id;
+  return gmailLabelId;
+}
+const b64 = (s) => { const u = new TextEncoder().encode(s); let bin = ''; for (let i = 0; i < u.length; i += 8192) bin += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(bin); };
+const b64chunks = (s) => b64(s).replace(/.{1,76}/g, '$&\r\n');
+async function saveToGmail(a) {
+  const id = await labelId();
+  const labels = [...a.segments, ...a.subsegments, ...a.companies].join(' · ');
+  const html = `<div style="font-family:Georgia,serif;max-width:640px">
+    <p style="font:12px Arial;color:#6b7280;margin:0 0 6px">${esc(a.source)} · ${new Date(a.published_at).toLocaleString('pt-BR')}${labels ? ' · ' + esc(labels) : ''}</p>
+    <h2 style="margin:0 0 8px;font-size:20px"><a href="${esc(a.url)}" style="color:#142033">${esc(a.title)}</a></h2>
+    ${a.excerpt ? `<p style="font:14px Arial;color:#374151">${esc(a.excerpt)}</p>` : ''}
+    ${a.summary ? `<div style="font:14px Arial;white-space:pre-wrap;border-left:3px solid #4f86bd;padding:8px 12px;background:#f7f9fc">${esc(a.summary)}</div>` : ''}
+    <p style="font:12px Arial"><a href="${esc(a.url)}">Abrir matéria</a> — via btn partners NewsHub</p></div>`;
+  const mime = [
+    `From: btn NewsHub <${email}>`, `To: ${email}`,
+    `Subject: =?UTF-8?B?${b64(a.title)}?=`, `Date: ${new Date().toUTCString()}`,
+    'MIME-Version: 1.0', 'Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', b64chunks(html),
+  ].join('\r\n');
+  const raw = b64(mime).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  await gmail('messages/insert?internalDateSource=dateHeader', { method: 'POST', body: JSON.stringify({ raw, labelIds: [id, 'UNREAD'] }) });
+}
+
+// ---------- refresh ----------
+$('#refresh').onclick = async () => {
+  const b = $('#refresh');
+  await withSpinner(b, async () => {
+    const r = await api('/api/refresh', { method: 'POST' });
+    const errs = Object.entries(r.ingest?.feeds || {}).filter(([, v]) => typeof v === 'string');
+    toast(`${r.ingest?.inserted || 0} novas · ${r.label?.labeled || 0} rotuladas${errs.length ? ` · erro em ${errs.map((e) => e[0]).join(', ')}` : ''}`, 4000);
+    await loadLabels(); await reload();
+  });
+};
+
+initAuth();
+</script>
+</body>
+</html>

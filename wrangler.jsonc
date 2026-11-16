@@ -1,0 +1,29 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "btn-newshub",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "triggers": {
+    "crons": ["*/15 * * * *"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "btn-newshub",
+      "database_id": "REPLACE_WITH_D1_ID"
+    }
+  ],
+  "vars": {
+    "CLAUDE_MODEL": "claude-haiku-5-5",
+    "ALLOWED_EMAILS": "hamilton@btnpartners.com",
+    "GOOGLE_CLIENT_ID": "REPLACE_WITH_GOOGLE_CLIENT_ID",
+    "FINTECHHUB_URL": "https://btn-fintechhub.pages.dev/"
+  },
+  "observability": { "enabled": true }
+}

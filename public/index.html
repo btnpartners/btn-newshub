@@ -126,6 +126,8 @@ const SCOPES = 'openid email https://www.googleapis.com/auth/gmail.insert https:
 const GMAIL_LABEL = 'News Fintech';
 const state = { mode: 'labeled', segment: '', sub: '', company: '', source: '', q: '', items: [], taxonomy: {}, loading: false, done: false };
 let token = null, tokenClient = null, email = null, gmailLabelId = null;
+const L = (x) => (state.pt && state.pt[x]) || x; // Portuguese display name
+const byPt = (a, b) => L(a).localeCompare(L(b), 'pt-BR');
 
 $('#today').textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 for (const s of SOURCES) $('#source').add(new Option(s, s));
@@ -189,10 +191,11 @@ async function start() {
 async function loadLabels() {
   const data = await api('/api/labels');
   state.taxonomy = data.taxonomy || {};
+  state.pt = data.pt || {};
   const cnt = (col) => Object.fromEntries((data.counts[col] || []).map((r) => [r.label, r.n]));
   state.counts = { s: cnt('segments'), d: cnt('subsegments'), c: cnt('companies') };
   const seg = $('#segment'); seg.length = 1;
-  for (const s of Object.keys(state.taxonomy)) seg.add(new Option(`${s} (${state.counts.s[s] || 0})`, s));
+  for (const s of Object.keys(state.taxonomy).sort(byPt)) seg.add(new Option(`${L(s)} (${state.counts.s[s] || 0})`, s));
   seg.value = state.segment;
   fillSubs();
   const dl = $('#companies'); dl.innerHTML = '';
@@ -204,10 +207,10 @@ async function loadLabels() {
 }
 function fillSubs() {
   const sub = $('#sub'); sub.length = 1;
-  const segs = state.segment ? [state.segment] : Object.keys(state.taxonomy);
+  const segs = state.segment ? [state.segment] : Object.keys(state.taxonomy).sort(byPt);
   for (const s of segs) {
-    const g = document.createElement('optgroup'); g.label = s;
-    for (const d of state.taxonomy[s] || []) g.append(new Option(`${d}${state.counts?.d[d] ? ` (${state.counts.d[d]})` : ''}`, d));
+    const g = document.createElement('optgroup'); g.label = L(s);
+    for (const d of [...(state.taxonomy[s] || [])].sort(byPt)) g.append(new Option(`${L(d)}${state.counts?.d[d] ? ` (${state.counts.d[d]})` : ''}`, d));
     sub.append(g);
   }
   sub.value = state.sub;
@@ -217,7 +220,7 @@ function syncControls() {
   $('#segment').value = state.segment; $('#sub').value = state.sub; $('#company').value = state.company; $('#source').value = state.source;
   document.querySelectorAll('#mode button').forEach((b) => b.classList.toggle('on', b.dataset.mode === state.mode));
   const act = [];
-  for (const [k, label] of [['segment', 'Segmento'], ['sub', 'Subsegmento'], ['company', 'Empresa'], ['source', 'Fonte'], ['q', 'Busca']]) if (state[k]) act.push(`<span class="pill" data-clear="${k}" title="Remover filtro">${label}: ${esc(state[k])} ✕</span>`);
+  for (const [k, label] of [['segment', 'Segmento'], ['sub', 'Subsegmento'], ['company', 'Empresa'], ['source', 'Fonte'], ['q', 'Busca']]) if (state[k]) act.push(`<span class="pill" data-clear="${k}" title="Remover filtro">${label}: ${esc(k === 'segment' || k === 'sub' ? L(state[k]) : state[k])} ✕</span>`);
   $('#active').innerHTML = act.join('');
 }
 $('#segment').onchange = (e) => setFilter('segment', e.target.value);
@@ -249,8 +252,8 @@ $('#moreBtn').onclick = loadMore;
 
 function card(a) {
   const chips = [
-    ...a.segments.map((s) => `<span class="chip s" data-f="segment" data-v="${esc(s)}">${esc(s)}</span>`),
-    ...a.subsegments.map((s) => `<span class="chip d" data-f="sub" data-v="${esc(s)}">${esc(s)}</span>`),
+    ...a.segments.map((s) => `<span class="chip s" data-f="segment" data-v="${esc(s)}" title="${esc(s)}">${esc(L(s))}</span>`),
+    ...a.subsegments.map((s) => `<span class="chip d" data-f="sub" data-v="${esc(s)}" title="${esc(s)}">${esc(L(s))}</span>`),
     ...a.companies.map((s) => `<span class="chip c" data-f="company" data-v="${esc(s)}">${esc(s)}</span>`),
     ...a.candidates.filter((c) => !a.companies.includes(c)).map((s) => `<span class="chip x" title="Nome encontrado no texto, mas a IA considerou que não se refere à empresa">${esc(s)}</span>`),
   ];
@@ -322,7 +325,7 @@ const b64 = (s) => { const u = new TextEncoder().encode(s); let bin = ''; for (l
 const b64chunks = (s) => b64(s).replace(/.{1,76}/g, '$&\r\n');
 async function saveToGmail(a) {
   const id = await labelId();
-  const labels = [...a.segments, ...a.subsegments, ...a.companies].join(' · ');
+  const labels = [...a.segments.map(L), ...a.subsegments.map(L), ...a.companies].join(' · ');
   const html = `<div style="font-family:Georgia,serif;max-width:640px">
     <p style="font:12px Arial;color:#6b7280;margin:0 0 6px">${esc(a.source)} · ${new Date(a.published_at).toLocaleString('pt-BR')}${labels ? ' · ' + esc(labels) : ''}</p>
     <h2 style="margin:0 0 8px;font-size:20px"><a href="${esc(a.url)}" style="color:#142033">${esc(a.title)}</a></h2>

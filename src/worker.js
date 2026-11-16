@@ -1,6 +1,7 @@
 import { FEEDS, fetchFeed } from './feeds.js';
 import { refreshCompaniesIfStale, loadCompanies, findCompanyMentions } from './companies.js';
-import { labelArticles, summarizeArticle } from './claude.js';
+import { labelArticles, summarizeArticle, translateLabels } from './claude.js';
+import { PT } from './labels-pt.js';
 
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS articles (
@@ -63,6 +64,24 @@ async function ingest(env) {
   return report;
 }
 
+async function getPt(env) {
+  const row = await env.DB.prepare("SELECT value FROM meta WHERE key = 'pt_auto'").first();
+  return { ...(row ? JSON.parse(row.value) : {}), ...PT };
+}
+
+// Give new FintechHub categories a Portuguese name (once).
+async function translateMissing(env) {
+  const { taxonomy } = await loadCompanies(env);
+  const pt = await getPt(env);
+  const names = [...new Set([...Object.keys(taxonomy), ...Object.values(taxonomy).flat()])].filter((n) => !pt[n]);
+  if (!names.length || !env.ANTHROPIC_API_KEY) return 0;
+  const auto = await translateLabels(env, names.slice(0, 80));
+  const row = await env.DB.prepare("SELECT value FROM meta WHERE key = 'pt_auto'").first();
+  const merged = { ...(row ? JSON.parse(row.value) : {}), ...auto };
+  await env.DB.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('pt_auto', ?)").bind(JSON.stringify(merged)).run();
+  return Object.keys(auto).length;
+}
+
 async function labelPending(env, maxArticles = 60) {
   const { results: pending } = await env.DB.prepare(
     "SELECT id, title, excerpt FROM articles WHERE label_status = 'pending' AND label_attempts < 3 ORDER BY published_at DESC LIMIT ?"
@@ -71,6 +90,7 @@ async function labelPending(env, maxArticles = 60) {
   const { taxonomy, index } = await loadCompanies(env);
   if (!Object.keys(taxonomy).length) return { labeled: 0, note: 'company database not loaded yet' };
 
+  const pt = await getPt(env);
   let labeled = 0;
   const usage = { input_tokens: 0, output_tokens: 0 };
   for (let k = 0; k < pending.length; k += 15) {
@@ -79,7 +99,7 @@ async function labelPending(env, maxArticles = 60) {
       candidates: findCompanyMentions(`${a.title} ${a.excerpt || ''}`, index).slice(0, 12),
     }));
     try {
-      const { results, usage: u } = await labelArticles(env, batch, taxonomy);
+      const { results, usage: u } = await labelArticles(env, batch, taxonomy, pt);
       usage.input_tokens += u.input_tokens || 0;
       usage.output_tokens += u.output_tokens || 0;
       const stmts = batch.map((a) => {
@@ -115,6 +135,7 @@ async function runCycle(env) {
   await ensureSchema(env);
   const out = {};
   try { out.companiesRefreshed = await refreshCompaniesIfStale(env); } catch (e) { out.companiesError = e.message; }
+  try { out.translated = await translateMissing(env); } catch (e) { out.translateError = e.message; }
   out.ingest = await ingest(env);
   out.label = await labelPending(env);
   await prune(env);
@@ -192,7 +213,7 @@ async function labelCounts(env, days = 30) {
     "SELECT COUNT(*) AS total, SUM(labeled) AS labeled, SUM(CASE WHEN label_status='pending' THEN 1 ELSE 0 END) AS pending FROM articles WHERE published_at > ?"
   ).bind(since).first();
   const last = await env.DB.prepare("SELECT value FROM meta WHERE key = 'last_cycle'").first();
-  return { taxonomy, counts, stats, lastCycle: last ? JSON.parse(last.value) : null };
+  return { taxonomy, pt: await getPt(env), counts, stats, lastCycle: last ? JSON.parse(last.value) : null };
 }
 
 async function handleApi(request, env, ctx, url) {

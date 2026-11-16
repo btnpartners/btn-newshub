@@ -30,50 +30,64 @@ function parseJson(text) {
   return JSON.parse(text.slice(start, end + 1));
 }
 
-export function taxonomyText(taxonomy) {
+export function taxonomyText(taxonomy, pt = {}) {
+  const n = (x) => (pt[x] && pt[x] !== x ? `${x} (${pt[x]})` : x);
   return Object.entries(taxonomy)
-    .map(([seg, subs]) => `- ${seg}: ${subs.join('; ')}`)
+    .map(([seg, subs]) => `- ${n(seg)}: ${subs.map(n).join('; ')}`)
     .join('\n');
 }
 
 // articles: [{ id, title, excerpt, candidates: [company names found by text match] }]
 // returns Map(id -> { segments, subsegments, companies })
-export async function labelArticles(env, articles, taxonomy) {
+export async function labelArticles(env, articles, taxonomy, pt = {}) {
   const segments = new Set(Object.keys(taxonomy));
-  const subToSeg = new Map();
-  for (const [seg, subs] of Object.entries(taxonomy)) for (const s of subs) subToSeg.set(s.toLowerCase(), { seg, sub: s });
+  const pairs = new Map(); // "segment > sub" (lowercase) -> { seg, sub }
+  for (const [seg, subs] of Object.entries(taxonomy)) for (const s of subs) pairs.set(`${seg} > ${s}`.toLowerCase(), { seg, sub: s });
 
-  const system = `You label Brazilian and global financial news for a fintech M&A advisory firm.
-Taxonomy (segment: sub-segments), taken from the firm's fintech database:
-${taxonomyText(taxonomy)}
+  const system = `You label Brazilian and global financial news (mostly in Portuguese) for a fintech M&A advisory firm.
+Taxonomy, taken from the firm's fintech database. Format: "- Segment (Portuguese name): Sub-segment (Portuguese name); ..."
+${taxonomyText(taxonomy, pt)}
 
 For each article decide which labels apply. Rules:
 - Only label an article if it is genuinely about a fintech, a financial-services business model, or a company/deal in one of these segments. General macro, politics, FX, commodities, sports, lifestyle, gadgets and non-financial companies get NO labels.
-- "subsegments" must be copied exactly from the taxonomy; "segments" must be exact segment names. Use the segment of each chosen sub-segment. Max 3 sub-segments.
+- "labels": up to 3 entries written exactly as "Segment > Sub-segment" using the ENGLISH names above (a sub-segment can exist under more than one segment; pick the segment that fits the article).
+- "segments": English segment names that apply even when no sub-segment fits (optional).
 - "companies": from the article's candidate list only, keep the names that really refer to that fintech/financial company in this article (drop coincidental word matches).
-Reply with ONLY a JSON array, one object per article: [{"id": <id>, "segments": [...], "subsegments": [...], "companies": [...]}]`;
+Reply with ONLY a JSON array, one object per article: [{"id": <id>, "labels": [...], "segments": [...], "companies": [...]}]`;
 
   const user = articles
     .map((a) => `id ${a.id}\nTitle: ${a.title}\nExcerpt: ${a.excerpt || '(none)'}\nCandidates: ${a.candidates.length ? a.candidates.join(', ') : '(none)'}`)
     .join('\n\n');
 
-  const { text, usage } = await callClaude(env, { system, user, maxTokens: 120 * articles.length + 200 });
+  const { text, usage } = await callClaude(env, { system, user, maxTokens: 140 * articles.length + 200 });
   const parsed = parseJson(text);
   const out = new Map();
   for (const r of Array.isArray(parsed) ? parsed : []) {
     const a = articles.find((x) => x.id === Number(r.id));
     if (!a) continue;
-    const subs = [];
+    const subs = new Set();
     const segs = new Set();
-    for (const s of r.subsegments || []) {
-      const hit = subToSeg.get(String(s).toLowerCase());
-      if (hit) { subs.push(hit.sub); segs.add(hit.seg); }
+    for (const l of (r.labels || []).slice(0, 3)) {
+      const hit = pairs.get(String(l).replace(/\s*>\s*/, ' > ').trim().toLowerCase());
+      if (hit) { subs.add(hit.sub); segs.add(hit.seg); }
     }
     for (const s of r.segments || []) if (segments.has(s)) segs.add(s);
     const companies = (r.companies || []).filter((c) => a.candidates.includes(c));
-    out.set(a.id, { segments: [...segs], subsegments: subs.slice(0, 3), companies });
+    out.set(a.id, { segments: [...segs], subsegments: [...subs], companies });
   }
   return { results: out, usage };
+}
+
+// Translate taxonomy names that have no Portuguese name yet.
+export async function translateLabels(env, names) {
+  if (!names.length) return {};
+  const { text } = await callClaude(env, {
+    system: 'Translate these fintech market category names into short Brazilian Portuguese labels as used by the Brazilian fintech/financial market (keep established English terms like BNPL, ERP, BaaS when that is market usage). Reply with ONLY a JSON object mapping each English name to its Portuguese label.',
+    user: JSON.stringify(names),
+    maxTokens: 40 * names.length + 100,
+  });
+  const obj = parseJson(text);
+  return Object.fromEntries(names.filter((n) => typeof obj[n] === 'string').map((n) => [n, obj[n]]));
 }
 
 // Pull readable paragraphs from an article page (works when not paywalled).

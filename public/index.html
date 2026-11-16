@@ -35,7 +35,7 @@
   .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: #fff; }
   .seg button { border: 0; background: transparent; padding: 7px 11px; cursor: pointer; color: var(--muted); }
   .seg button.on { background: var(--navy); color: #fff; }
-  .filters { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; padding-bottom: 12px; }
+  .filters { display: grid; grid-template-columns: 2fr 1.5fr 1fr; gap: 8px; padding-bottom: 12px; }
   .filters select, .filters input { width: 100%; }
   .stats { font-size: 12px; color: var(--muted); padding: 10px 0 4px; }
   .active-filters { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0 0; }
@@ -70,6 +70,7 @@
     h1 { font-size: 20px; }
     .date { display: none; }
     .filters { grid-template-columns: 1fr 1fr; }
+    .filters #label { grid-column: 1 / -1; }
     h2 { font-size: 17px; }
     .seg button { padding: 7px 8px; font-size: 12.5px; }
     header { position: static; }
@@ -95,8 +96,7 @@
         <input type="search" id="q" placeholder="Buscar palavra-chave" />
       </div>
       <div class="filters">
-        <select id="segment"><option value="">Segmento: todos</option></select>
-        <select id="sub"><option value="">Subsegmento: todos</option></select>
+        <select id="label"><option value="">Rótulo: todos</option></select>
         <input id="company" list="companies" placeholder="Empresa" />
         <select id="source"><option value="">Fonte: todas</option></select>
         <datalist id="companies"></datalist>
@@ -123,10 +123,9 @@ const $ = (s) => document.querySelector(s);
 const SOURCES = ['Valor Econômico', 'Pipeline Valor', 'Exame', 'Brazil Journal', 'Finsiders Brasil'];
 const SCOPES = 'openid email https://www.googleapis.com/auth/gmail.insert https://www.googleapis.com/auth/gmail.labels';
 const GMAIL_LABEL = 'News Fintech';
-const state = { mode: 'labeled', segment: '', sub: '', company: '', source: '', q: '', items: [], taxonomy: {}, loading: false, done: false };
+const state = { mode: 'labeled', label: '', company: '', source: '', q: '', items: [], groups: {}, loading: false, done: false };
 let token = null, tokenClient = null, email = null, gmailLabelId = null;
-const L = (x) => (state.pt && state.pt[x]) || x; // Portuguese display name
-const byPt = (a, b) => L(a).localeCompare(L(b), 'pt-BR');
+
 
 $('#today').textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 for (const s of SOURCES) $('#source').add(new Option(s, s));
@@ -196,14 +195,17 @@ async function start() {
 // ---------- labels / filters ----------
 async function loadLabels() {
   const data = await api('/api/labels');
-  state.taxonomy = data.taxonomy || {};
-  state.pt = data.pt || {};
+  state.groups = data.groups || {};
   const cnt = (col) => Object.fromEntries((data.counts[col] || []).map((r) => [r.label, r.n]));
-  state.counts = { s: cnt('segments'), d: cnt('subsegments'), c: cnt('companies') };
-  const seg = $('#segment'); seg.length = 1;
-  for (const s of Object.keys(state.taxonomy).sort(byPt)) seg.add(new Option(`${L(s)} (${state.counts.s[s] || 0})`, s));
-  seg.value = state.segment;
-  fillSubs();
+  state.counts = { l: cnt('labels'), c: cnt('companies') };
+  const sel = $('#label'); sel.length = 1;
+  for (const [g, labels] of Object.entries(state.groups)) {
+    const og = document.createElement('optgroup'); og.label = g;
+    for (const l of [...labels].sort((x, y) => (state.counts.l[y] || 0) - (state.counts.l[x] || 0) || x.localeCompare(y, 'pt-BR')))
+      og.append(new Option(`${l}${state.counts.l[l] ? ` (${state.counts.l[l]})` : ''}`, l));
+    sel.append(og);
+  }
+  sel.value = state.label;
   const dl = $('#companies'); dl.innerHTML = '';
   for (const r of data.counts.companies || []) dl.append(new Option(`${r.n} notícias`, r.label));
   const st = data.stats || {};
@@ -211,26 +213,15 @@ async function loadLabels() {
   const pct = st.total ? Math.round((100 * (st.labeled || 0)) / st.total) : 0;
   $('#stats').textContent = `Últimos 30 dias: ${st.total || 0} notícias coletadas · ${st.labeled || 0} rotuladas (${pct}%)${st.pending ? ` · ${st.pending} aguardando rotulagem` : ''} · última coleta ${last}`;
 }
-function fillSubs() {
-  const sub = $('#sub'); sub.length = 1;
-  const segs = state.segment ? [state.segment] : Object.keys(state.taxonomy).sort(byPt);
-  for (const s of segs) {
-    const g = document.createElement('optgroup'); g.label = L(s);
-    for (const d of [...(state.taxonomy[s] || [])].sort(byPt)) g.append(new Option(`${L(d)}${state.counts?.d[d] ? ` (${state.counts.d[d]})` : ''}`, d));
-    sub.append(g);
-  }
-  sub.value = state.sub;
-}
-function setFilter(k, v) { state[k] = v; if (k === 'segment') { state.sub = ''; fillSubs(); } syncControls(); reload(); }
+function setFilter(k, v) { state[k] = v; syncControls(); reload(); }
 function syncControls() {
-  $('#segment').value = state.segment; $('#sub').value = state.sub; $('#company').value = state.company; $('#source').value = state.source;
+  $('#label').value = state.label; $('#company').value = state.company; $('#source').value = state.source;
   document.querySelectorAll('#mode button').forEach((b) => b.classList.toggle('on', b.dataset.mode === state.mode));
   const act = [];
-  for (const [k, label] of [['segment', 'Segmento'], ['sub', 'Subsegmento'], ['company', 'Empresa'], ['source', 'Fonte'], ['q', 'Busca']]) if (state[k]) act.push(`<span class="pill" data-clear="${k}" title="Remover filtro">${label}: ${esc(k === 'segment' || k === 'sub' ? L(state[k]) : state[k])} ✕</span>`);
+  for (const [k, label] of [['label', 'Rótulo'], ['company', 'Empresa'], ['source', 'Fonte'], ['q', 'Busca']]) if (state[k]) act.push(`<span class="pill" data-clear="${k}" title="Remover filtro">${label}: ${esc(state[k])} ✕</span>`);
   $('#active').innerHTML = act.join('');
 }
-$('#segment').onchange = (e) => setFilter('segment', e.target.value);
-$('#sub').onchange = (e) => setFilter('sub', e.target.value);
+$('#label').onchange = (e) => setFilter('label', e.target.value);
 $('#source').onchange = (e) => setFilter('source', e.target.value);
 $('#company').onchange = (e) => setFilter('company', e.target.value.trim());
 let qTimer; $('#q').oninput = (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => setFilter('q', e.target.value.trim()), 350); };
@@ -244,7 +235,7 @@ async function loadMore() {
   state.loading = true; $('#moreBtn').disabled = true;
   try {
     const p = new URLSearchParams({ mode: state.mode, limit: '40' });
-    for (const [k, param] of [['segment', 'segment'], ['sub', 'sub'], ['company', 'company'], ['source', 'source'], ['q', 'q']]) if (state[k]) p.set(param, state[k]);
+    for (const k of ['label', 'company', 'source', 'q']) if (state[k]) p.set(k, state[k]);
     const last = state.items[state.items.length - 1]; if (last) p.set('before', last.published_at);
     const { articles } = await api(`/api/articles?${p}`);
     state.items.push(...articles);
@@ -258,8 +249,7 @@ $('#moreBtn').onclick = loadMore;
 
 function card(a) {
   const chips = [
-    ...a.segments.map((s) => `<span class="chip s" data-f="segment" data-v="${esc(s)}" title="${esc(s)}">${esc(L(s))}</span>`),
-    ...a.subsegments.map((s) => `<span class="chip d" data-f="sub" data-v="${esc(s)}" title="${esc(s)}">${esc(L(s))}</span>`),
+    ...a.labels.map((s) => `<span class="chip s" data-f="label" data-v="${esc(s)}">${esc(s)}</span>`),
     ...a.companies.map((s) => `<span class="chip c" data-f="company" data-v="${esc(s)}">${esc(s)}</span>`),
     ...a.candidates.filter((c) => !a.companies.includes(c)).map((s) => `<span class="chip x" title="Nome encontrado no texto, mas a IA considerou que não se refere à empresa">${esc(s)}</span>`),
   ];
@@ -281,7 +271,7 @@ const summaryHtml = (a) => `<div class="summary">${esc(a.summary)}<small>${esc(a
 
 $('#list').onclick = async (e) => {
   const chip = e.target.closest('[data-f]');
-  if (chip) { if (chip.dataset.f === 'segment') { state.sub = ''; } setFilter(chip.dataset.f, chip.dataset.v); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+  if (chip) { setFilter(chip.dataset.f, chip.dataset.v); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
   const btn = e.target.closest('[data-act]'); if (!btn) return;
   const el = btn.closest('article'); const a = state.items.find((x) => x.id === Number(el.dataset.id));
   if (btn.dataset.act === 'copy') { await navigator.clipboard.writeText(a.url); toast('URL copiada'); }
@@ -315,7 +305,7 @@ async function ensureSummary(a, el) {
 
 // ---------- e-mail (no login: pre-filled email to the News Fintech address) ----------
 function mailtoLink(a) {
-  const labels = [...a.segments.map(L), ...a.subsegments.map(L), ...a.companies].join(' · ');
+  const labels = [...a.labels, ...a.companies].join(' · ');
   const lines = [a.title, a.url, '', `${a.source} · ${new Date(a.published_at).toLocaleString('pt-BR')}`];
   if (labels) lines.push(`Rótulos: ${labels}`);
   lines.push('', a.summary ? `Resumo Claude:\n${a.summary}` : (a.excerpt || ''));
@@ -341,7 +331,7 @@ const b64 = (s) => { const u = new TextEncoder().encode(s); let bin = ''; for (l
 const b64chunks = (s) => b64(s).replace(/.{1,76}/g, '$&\r\n');
 async function saveToGmail(a) {
   const id = await labelId();
-  const labels = [...a.segments.map(L), ...a.subsegments.map(L), ...a.companies].join(' · ');
+  const labels = [...a.labels, ...a.companies].join(' · ');
   const html = `<div style="font-family:Georgia,serif;max-width:640px">
     <p style="font:12px Arial;color:#6b7280;margin:0 0 6px">${esc(a.source)} · ${new Date(a.published_at).toLocaleString('pt-BR')}${labels ? ' · ' + esc(labels) : ''}</p>
     <h2 style="margin:0 0 8px;font-size:20px"><a href="${esc(a.url)}" style="color:#142033">${esc(a.title)}</a></h2>

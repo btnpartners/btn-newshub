@@ -1,7 +1,7 @@
 import { FEEDS, fetchFeed } from './feeds.js';
 import { refreshCompaniesIfStale, loadCompanies, findCompanyMentions } from './companies.js';
-import { labelArticles, summarizeArticle, translateLabels } from './claude.js';
-import { PT } from './labels-pt.js';
+import { labelArticles, summarizeArticle } from './claude.js';
+import { LABEL_GROUPS } from './labels.js';
 
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS articles (
@@ -15,8 +15,7 @@ const SCHEMA = [
     candidates TEXT DEFAULT '[]',
     label_status TEXT DEFAULT 'pending',
     label_attempts INTEGER DEFAULT 0,
-    segments TEXT DEFAULT '[]',
-    subsegments TEXT DEFAULT '[]',
+    labels TEXT DEFAULT '[]',
     companies TEXT DEFAULT '[]',
     labeled INTEGER DEFAULT 0,
     summary TEXT,
@@ -34,6 +33,7 @@ let schemaReady = false;
 async function ensureSchema(env) {
   if (schemaReady) return;
   await env.DB.batch(SCHEMA.map((s) => env.DB.prepare(s)));
+  try { await env.DB.prepare("ALTER TABLE articles ADD COLUMN labels TEXT DEFAULT '[]'").run(); } catch {}
   schemaReady = true;
 }
 
@@ -64,33 +64,12 @@ async function ingest(env) {
   return report;
 }
 
-async function getPt(env) {
-  const row = await env.DB.prepare("SELECT value FROM meta WHERE key = 'pt_auto'").first();
-  return { ...(row ? JSON.parse(row.value) : {}), ...PT };
-}
-
-// Give new FintechHub categories a Portuguese name (once).
-async function translateMissing(env) {
-  const { taxonomy } = await loadCompanies(env);
-  const pt = await getPt(env);
-  const names = [...new Set([...Object.keys(taxonomy), ...Object.values(taxonomy).flat()])].filter((n) => !pt[n]);
-  if (!names.length || !env.ANTHROPIC_API_KEY) return 0;
-  const auto = await translateLabels(env, names.slice(0, 80));
-  const row = await env.DB.prepare("SELECT value FROM meta WHERE key = 'pt_auto'").first();
-  const merged = { ...(row ? JSON.parse(row.value) : {}), ...auto };
-  await env.DB.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('pt_auto', ?)").bind(JSON.stringify(merged)).run();
-  return Object.keys(auto).length;
-}
-
 async function labelPending(env, maxArticles = 60) {
   const { results: pending } = await env.DB.prepare(
     "SELECT id, title, excerpt FROM articles WHERE label_status = 'pending' AND label_attempts < 3 ORDER BY published_at DESC LIMIT ?"
   ).bind(maxArticles).all();
   if (!pending.length) return { labeled: 0 };
-  const { taxonomy, index } = await loadCompanies(env);
-  if (!Object.keys(taxonomy).length) return { labeled: 0, note: 'company database not loaded yet' };
-
-  const pt = await getPt(env);
+  const { index } = await loadCompanies(env);
   let labeled = 0;
   const usage = { input_tokens: 0, output_tokens: 0 };
   for (let k = 0; k < pending.length; k += 15) {
@@ -99,15 +78,15 @@ async function labelPending(env, maxArticles = 60) {
       candidates: findCompanyMentions(`${a.title} ${a.excerpt || ''}`, index).slice(0, 12),
     }));
     try {
-      const { results, usage: u } = await labelArticles(env, batch, taxonomy, pt);
+      const { results, usage: u } = await labelArticles(env, batch);
       usage.input_tokens += u.input_tokens || 0;
       usage.output_tokens += u.output_tokens || 0;
       const stmts = batch.map((a) => {
-        const r = results.get(a.id) || { segments: [], subsegments: [], companies: [] };
-        const has = r.segments.length + r.subsegments.length + r.companies.length > 0 ? 1 : 0;
+        const r = results.get(a.id) || { labels: [], companies: [] };
+        const has = r.labels.length + r.companies.length > 0 ? 1 : 0;
         return env.DB.prepare(
-          "UPDATE articles SET candidates = ?, segments = ?, subsegments = ?, companies = ?, labeled = ?, label_status = 'done', label_attempts = label_attempts + 1 WHERE id = ?"
-        ).bind(JSON.stringify(a.candidates), JSON.stringify(r.segments), JSON.stringify(r.subsegments), JSON.stringify(r.companies), has, a.id);
+          "UPDATE articles SET candidates = ?, labels = ?, companies = ?, labeled = ?, label_status = 'done', label_attempts = label_attempts + 1 WHERE id = ?"
+        ).bind(JSON.stringify(a.candidates), JSON.stringify(r.labels), JSON.stringify(r.companies), has, a.id);
       });
       await env.DB.batch(stmts);
       labeled += batch.length;
@@ -135,7 +114,6 @@ async function runCycle(env) {
   await ensureSchema(env);
   const out = {};
   try { out.companiesRefreshed = await refreshCompaniesIfStale(env); } catch (e) { out.companiesError = e.message; }
-  try { out.translated = await translateMissing(env); } catch (e) { out.translateError = e.message; }
   out.ingest = await ingest(env);
   out.label = await labelPending(env);
   await prune(env);
@@ -169,7 +147,7 @@ async function authorize(request, env) {
 function rowOut(r) {
   return {
     id: r.id, url: r.url, title: r.title, excerpt: r.excerpt, source: r.source, published_at: r.published_at,
-    segments: JSON.parse(r.segments || '[]'), subsegments: JSON.parse(r.subsegments || '[]'), companies: JSON.parse(r.companies || '[]'),
+    labels: JSON.parse(r.labels || '[]'), companies: JSON.parse(r.companies || '[]'),
     candidates: JSON.parse(r.candidates || '[]'), label_status: r.label_status, labeled: !!r.labeled,
     summary: r.summary, summary_model: r.summary_model, gmail_saved_at: r.gmail_saved_at,
   };
@@ -182,7 +160,7 @@ async function listArticles(env, params) {
   if (mode === 'labeled') where.push('a.labeled = 1');
   if (mode === 'unlabeled') where.push("a.labeled = 0 AND a.label_status = 'done'");
   if (mode === 'saved') where.push('(a.summary IS NOT NULL OR a.gmail_saved_at IS NOT NULL)');
-  for (const [param, col] of [['segment', 'segments'], ['sub', 'subsegments'], ['company', 'companies']]) {
+  for (const [param, col] of [['label', 'labels'], ['company', 'companies']]) {
     for (const v of params.getAll(param)) {
       where.push(`EXISTS (SELECT 1 FROM json_each(a.${col}) WHERE json_each.value = ?)`);
       binds.push(v);
@@ -203,18 +181,17 @@ async function listArticles(env, params) {
 async function labelCounts(env, days = 30) {
   const since = Date.now() - days * 864e5;
   const counts = {};
-  for (const col of ['segments', 'subsegments', 'companies']) {
+  for (const col of ['labels', 'companies']) {
     const { results } = await env.DB.prepare(
       `SELECT j.value AS label, COUNT(*) AS n FROM articles a, json_each(a.${col}) j WHERE a.published_at > ? GROUP BY j.value ORDER BY n DESC LIMIT 200`
     ).bind(since).all();
     counts[col] = results;
   }
-  const { taxonomy } = await loadCompanies(env);
   const stats = await env.DB.prepare(
     "SELECT COUNT(*) AS total, SUM(labeled) AS labeled, SUM(CASE WHEN label_status='pending' THEN 1 ELSE 0 END) AS pending FROM articles WHERE published_at > ?"
   ).bind(since).first();
   const last = await env.DB.prepare("SELECT value FROM meta WHERE key = 'last_cycle'").first();
-  return { taxonomy, pt: await getPt(env), counts, stats, lastCycle: last ? JSON.parse(last.value) : null };
+  return { groups: LABEL_GROUPS, counts, stats, lastCycle: last ? JSON.parse(last.value) : null };
 }
 
 async function handleApi(request, env, ctx, url) {

@@ -62,7 +62,8 @@ export const ASSOCIATION_ALIASES = {
 
 const strip = (x) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const escape = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const ASSOC_PATTERNS = LABEL_GROUPS['Associações'].map((label) => ({
+// ABCD is also the São Paulo ABCD region, so it is left to Claude.
+const ASSOC_PATTERNS = LABEL_GROUPS['Associações'].filter((l) => l !== 'ABCD').map((label) => ({
   label,
   re: new RegExp(`(^|[^a-z0-9])(${[label, ...(ASSOCIATION_ALIASES[label] || [])].map((n) => escape(strip(n))).join('|')})([^a-z0-9]|$)`),
 }));

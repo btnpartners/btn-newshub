@@ -23,7 +23,7 @@ export const LABEL_GROUPS = {
 export const ALL_LABELS = Object.values(LABEL_GROUPS).flat();
 
 // Bump when labels or labeling rules change: stored articles are relabeled automatically.
-export const LABELS_VERSION = '2026-11-18b';
+export const LABELS_VERSION = '2026-11-18c';
 
 export const HINTS = {
   'IP': 'instituição de pagamento (licença do BC)',
@@ -46,3 +46,28 @@ export const HINTS = {
   'Agronegócios': 'agronegócio brasileiro como assunto principal: produtores, safras, tradings, insumos, CPR, CRA, Fiagro; não para comércio exterior, macroeconomia ou outros países em geral',
   'Crédito Agrícola': 'crédito rural / financiamento ao produtor (Plano Safra, CPR, CRA, Fiagro)',
 };
+
+// Associations are tagged automatically whenever their name appears in the title or excerpt
+// (Claude sometimes skips them when the story is also about PIX, payments etc.).
+export const ASSOCIATION_ALIASES = {
+  ABfintechs: ['Associação Brasileira de Fintechs'],
+  ABcripto: ['Associação Brasileira de Criptoeconomia'],
+  ABECS: ['Associação Brasileira das Empresas de Cartões de Crédito e Serviços'],
+  ABIPAG: ['Associação Brasileira de Instituições de Pagamentos'],
+  Febraban: ['Federação Brasileira de Bancos'],
+  ABVCAP: ['Associação Brasileira de Private Equity e Venture Capital'],
+  Anbima: ['Associação Brasileira das Entidades dos Mercados Financeiro e de Capitais'],
+  CNseg: ['Confederação Nacional das Seguradoras'],
+};
+
+const strip = (x) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const escape = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const ASSOC_PATTERNS = LABEL_GROUPS['Associações'].map((label) => ({
+  label,
+  re: new RegExp(`(^|[^a-z0-9])(${[label, ...(ASSOCIATION_ALIASES[label] || [])].map((n) => escape(strip(n))).join('|')})([^a-z0-9]|$)`),
+}));
+
+export function associationsIn(text) {
+  const t = strip(text || '');
+  return ASSOC_PATTERNS.filter((p) => p.re.test(t)).map((p) => p.label);
+}

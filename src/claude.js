@@ -29,7 +29,7 @@ function parseJson(text) {
   return JSON.parse(text.slice(start, end + 1));
 }
 
-import { LABEL_GROUPS, ALL_LABELS, HINTS } from './labels.js';
+import { LABEL_GROUPS, ALL_LABELS, HINTS, associationsIn } from './labels.js';
 
 function labelList() {
   return Object.entries(LABEL_GROUPS)
@@ -62,7 +62,10 @@ Responda SOMENTE com um array JSON, um objeto por notícia: [{"id": <id>, "label
   for (const r of Array.isArray(parsed) ? parsed : []) {
     const a = articles.find((x) => x.id === Number(r.id));
     if (!a) continue;
-    const labels = [...new Set((r.labels || []).map((l) => valid.get(String(l).trim().toLowerCase())).filter(Boolean))];
+    const labels = [...new Set([
+      ...(r.labels || []).map((l) => valid.get(String(l).trim().toLowerCase())).filter(Boolean),
+      ...associationsIn(`${a.title} ${a.excerpt || ''}`),
+    ])];
     const norm = (x) => String(x).toLowerCase().replace(/[^a-z0-9]/g, '');
     const byNorm = new Map(a.candidates.map((c) => [norm(c), c]));
     const companies = [...new Set((r.companies || []).map((c) => byNorm.get(norm(c))).filter(Boolean))];

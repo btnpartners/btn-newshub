@@ -100,6 +100,7 @@ function nameVariants(name) {
 const squash = (tokens) => tokens.join('').toLowerCase();
 
 // Index by the name with spaces removed and lowercased, so "Pagbank" = "PagBank" and "C6Bank" = "C6 Bank".
+// Multi-word names are also indexed word by word ('~' key), so "Banco do Brasil" matches with its lowercase "do".
 export function buildIndex(companies) {
   const index = new Map(); // squashed name -> company
   for (const c of companies) {
@@ -117,24 +118,39 @@ export function buildIndex(companies) {
       }
       const key = squash(tokens);
       if (key.length < 3 || !index.has(key)) index.set(key, c.name);
+      if (tokens.length > 1) {
+        const seq = '~' + tokens.map((t) => t.toLowerCase()).join(' ');
+        if (!index.has(seq)) index.set(seq, c.name);
+      }
     }
   }
   return index;
 }
 
 // A mention must start with a capitalised word (or a digit), so common lowercase words don't match.
+// Words are never joined across punctuation ("disse ao Valor. A empresa" is not "Valora"), and when
+// several words are glued together to match a one-word name, each of them must be capitalised
+// and longer than one letter ("C6 Bank" = "C6Bank", but "Valor a" / "Valor A" are not "Valora").
 export function findCompanyMentions(text, index) {
-  const tokens = tokenize(text);
   const found = new Set();
-  for (let i = 0; i < tokens.length; i++) {
-    if (!/^[A-Z0-9]/.test(tokens[i])) continue;
-    const exact = index.get('=' + tokens[i]);
-    if (exact) found.add(exact);
-    let joined = '';
-    for (let k = 0; k < 4 && i + k < tokens.length; k++) {
-      joined += tokens[i + k].toLowerCase();
-      const hit = index.get(joined);
-      if (hit) found.add(hit);
+  const segments = strip(text).split(/[.,;:!?|()\[\]{}"“”‘’'«»…–—\/]+|\s-\s/);
+  for (const segment of segments) {
+    const tokens = tokenize(segment);
+    for (let i = 0; i < tokens.length; i++) {
+      if (!/^[A-Z0-9]/.test(tokens[i])) continue;
+      const exact = index.get('=' + tokens[i]);
+      if (exact) found.add(exact);
+      let joined = '';
+      let seq = '~';
+      let allCaps = true;
+      for (let k = 0; k < 4 && i + k < tokens.length; k++) {
+        const t = tokens[i + k];
+        joined += t.toLowerCase();
+        seq += (k ? ' ' : '') + t.toLowerCase();
+        if (k > 0 && (!/^[A-Z0-9]/.test(t) || t.length < 2)) allCaps = false; // "A", "O", "E" are articles
+        const hit = (allCaps && index.get(joined)) || (k > 0 && index.get(seq));
+        if (hit) found.add(hit);
+      }
     }
   }
   return [...found];

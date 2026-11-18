@@ -23,7 +23,7 @@ export const LABEL_GROUPS = {
 export const ALL_LABELS = Object.values(LABEL_GROUPS).flat();
 
 // Bump when labels or labeling rules change: stored articles are relabeled automatically.
-export const LABELS_VERSION = '2026-11-18a';
+export const LABELS_VERSION = '2026-11-18b';
 
 export const HINTS = {
   'IP': 'instituição de pagamento (licença do BC)',
@@ -43,4 +43,6 @@ export const HINTS = {
   'CNseg': 'Confederação Nacional das Seguradoras',
   'CMN': 'Conselho Monetário Nacional',
   'Regulação': 'normas e regulação do setor financeiro',
+  'Agronegócios': 'agronegócio brasileiro como assunto principal: produtores, safras, tradings, insumos, CPR, CRA, Fiagro; não para comércio exterior, macroeconomia ou outros países em geral',
+  'Crédito Agrícola': 'crédito rural / financiamento ao produtor (Plano Safra, CPR, CRA, Fiagro)',
 };

@@ -47,8 +47,9 @@ ${labelList()}
 
 Regras:
 - Atribua TODOS os rótulos que se aplicam claramente à notícia (normalmente 1 a 5). Associações, reguladores e licenças só quando forem citados ou forem o assunto.
+- Rotule pelo assunto principal da notícia, não por menções de passagem ou associações vagas. Ex.: déficit comercial do Japão, piloto no Rally Dakar ou montadora de carros NÃO são Agronegócios; notícias de outros países ou de macroeconomia só recebem rótulos se tratarem diretamente do produto/mercado do rótulo.
 - Se nenhum rótulo se aplicar (esportes, celebridades, gadgets, política sem impacto econômico etc.), deixe a lista vazia.
-- "companies": da lista de candidatas de cada notícia, mantenha só os nomes que de fato se referem a uma empresa do setor financeiro/fintech citada na notícia. Descarte coincidências: pessoas (ex.: Lula, Warren Buffett), lugares, órgãos públicos, personagens e palavras comuns.
+- "companies": da lista de candidatas de cada notícia, mantenha só os nomes que de fato se referem a uma empresa do setor financeiro/fintech citada na notícia. Descarte coincidências: pessoas (ex.: Lula, Warren Buffett), lugares, órgãos públicos, personagens, palavras comuns e nomes de veículos de imprensa (ex.: \"Valor\" não é a empresa Valora). Só mantenha uma empresa se o nome dela aparecer de fato no título ou no resumo.
 Responda SOMENTE com um array JSON, um objeto por notícia: [{"id": <id>, "labels": [...], "companies": [...]}]`;
 
   const user = articles

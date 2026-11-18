@@ -23,7 +23,7 @@ export const LABEL_GROUPS = {
 export const ALL_LABELS = Object.values(LABEL_GROUPS).flat();
 
 // Bump when labels or labeling rules change: stored articles are relabeled automatically.
-export const LABELS_VERSION = '2026-11-18c';
+export const LABELS_VERSION = '2026-11-18d';
 
 export const HINTS = {
   'IP': 'instituição de pagamento (licença do BC)',
@@ -47,7 +47,7 @@ export const HINTS = {
   'Crédito Agrícola': 'crédito rural / financiamento ao produtor (Plano Safra, CPR, CRA, Fiagro)',
 };
 
-// Associations are tagged automatically whenever their name appears in the title or excerpt
+// Associations and regulators are tagged automatically whenever their name appears in the title or excerpt
 // (Claude sometimes skips them when the story is also about PIX, payments etc.).
 export const ASSOCIATION_ALIASES = {
   ABfintechs: ['Associação Brasileira de Fintechs'],
@@ -58,14 +58,20 @@ export const ASSOCIATION_ALIASES = {
   ABVCAP: ['Associação Brasileira de Private Equity e Venture Capital'],
   Anbima: ['Associação Brasileira das Entidades dos Mercados Financeiro e de Capitais'],
   CNseg: ['Confederação Nacional das Seguradoras'],
+  // Regulators (also tagged automatically). "Banco Central" alone is left to Claude: it is often a foreign central bank.
+  CMN: ['Conselho Monetário Nacional'],
+  CVM: ['Comissão de Valores Mobiliários'],
+  Susep: ['Superintendência de Seguros Privados'],
+  'Banco Central': ['Banco Central do Brasil', 'BCB'],
 };
 
 const strip = (x) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const escape = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // ABCD is also the São Paulo ABCD region, so it is left to Claude.
-const ASSOC_PATTERNS = LABEL_GROUPS['Associações'].filter((l) => l !== 'ABCD').map((label) => ({
+const AUTO_LABELS = [...LABEL_GROUPS['Associações'].filter((l) => l !== 'ABCD'), 'CMN', 'CVM', 'Susep', 'Banco Central'];
+const ASSOC_PATTERNS = AUTO_LABELS.map((label) => ({
   label,
-  re: new RegExp(`(^|[^a-z0-9])(${[label, ...(ASSOCIATION_ALIASES[label] || [])].map((n) => escape(strip(n))).join('|')})([^a-z0-9]|$)`),
+  re: new RegExp(`(^|[^a-z0-9])(${[...(label === 'Banco Central' ? [] : [label]), ...(ASSOCIATION_ALIASES[label] || [])].map((n) => escape(strip(n))).join('|')})([^a-z0-9]|$)`),
 }));
 
 export function associationsIn(text) {

@@ -16,14 +16,14 @@ export const LABEL_GROUPS = {
   'Associações': [
     'ABAC', 'ABBAAS', 'ABBC', 'ABCD', 'ABcripto', 'ABECIP', 'ABECS', 'ABfintechs', 'ABIPAG', 'Abranet', 'ABRAC',
     'ABRACAM', 'ABRAPP', 'ABRASCA', 'ABtoken', 'ABVCAP', 'ACREFI', 'Anbima', 'Ancord', 'ANFIDC', 'CNseg', 'Febraban',
-    'Fenacap', 'FENACOR', 'Fenaprev', 'Fenasaude', 'Fenaseg', 'Zetta',
+    'Fenacap', 'FENACOR', 'Fenaprev', 'Fenasaude', 'Fenaseg', 'Zetta', 'Associação Open Finance',
   ],
 };
 
 export const ALL_LABELS = Object.values(LABEL_GROUPS).flat();
 
 // Bump when labels or labeling rules change: stored articles are relabeled automatically.
-export const LABELS_VERSION = '2026-11-18d';
+export const LABELS_VERSION = '2026-11-19a';
 
 export const HINTS = {
   'IP': 'instituição de pagamento (licença do BC)',
@@ -42,6 +42,7 @@ export const HINTS = {
   'Adquirentes': 'credenciadoras de cartões / maquininhas',
   'CNseg': 'Confederação Nacional das Seguradoras',
   'CMN': 'Conselho Monetário Nacional',
+  'Associação Open Finance': 'Associação Open Finance Brasil, que governa o ecossistema de Open Finance (não confundir com o rótulo Open Finance em geral)',
   'Regulação': 'normas e regulação do setor financeiro',
   'Agronegócios': 'agronegócio brasileiro como assunto principal: produtores, safras, tradings, insumos, CPR, CRA, Fiagro; não para comércio exterior, macroeconomia ou outros países em geral',
   'Crédito Agrícola': 'crédito rural / financiamento ao produtor (Plano Safra, CPR, CRA, Fiagro)',
@@ -58,6 +59,7 @@ export const ASSOCIATION_ALIASES = {
   ABVCAP: ['Associação Brasileira de Private Equity e Venture Capital'],
   Anbima: ['Associação Brasileira das Entidades dos Mercados Financeiro e de Capitais'],
   CNseg: ['Confederação Nacional das Seguradoras'],
+  'Associação Open Finance': ['Associação Open Finance Brasil'],
   // Regulators (also tagged automatically). "Banco Central" alone is left to Claude: it is often a foreign central bank.
   CMN: ['Conselho Monetário Nacional'],
   CVM: ['Comissão de Valores Mobiliários'],

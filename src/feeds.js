@@ -6,6 +6,8 @@ export const FEEDS = [
   { source: 'Exame', url: 'https://exame.com/feed/' },
   { source: 'Brazil Journal', url: 'https://braziljournal.com/feed/' },
   { source: 'Finsiders Brasil', url: 'https://finsidersbrasil.com.br/feed/' },
+  { source: 'NeoFeed', url: 'https://neofeed.com.br/feed/' },
+  { source: 'InfoMoney', url: 'https://www.infomoney.com.br/feed/' },
 ];
 
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', hellip: '…', ndash: '–', mdash: '—', lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”' };

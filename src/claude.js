@@ -48,6 +48,10 @@ ${labelList()}
 Regras:
 - Atribua TODOS os rótulos que se aplicam claramente à notícia (normalmente 1 a 5). Associações, reguladores e licenças só quando forem citados ou forem o assunto.
 - Rotule pelo assunto principal da notícia, não por menções de passagem ou associações vagas. Ex.: déficit comercial do Japão, piloto no Rally Dakar ou montadora de carros NÃO são Agronegócios; notícias de outros países ou de macroeconomia só recebem rótulos se tratarem diretamente do produto/mercado do rótulo.
+- Notícias de outros países (bolsas dos EUA/Europa/Ásia, IPOs no exterior, big techs, IA, Fed, juros e moedas lá fora, política externa) NÃO recebem rótulos, exceto quando tratam diretamente do Brasil (empresas, investidores ou mercado brasileiro) ou de um tema fintech em si (pagamentos, cripto/stablecoin, bancos digitais, fintechs, regulação de fintechs).
+- "CVM", "Banco Central", "CMN" e "Susep" são só os órgãos brasileiros. SEC, Fed, BCE e outros reguladores estrangeiros NÃO recebem esses rótulos; use "Regulação" apenas se a notícia for sobre regulação do setor financeiro.
+- "M&A" só para fusões, aquisições, venda de participação ou processos de venda de empresas; não para compras de ativos (ex.: bitcoin) nem vendas de imóveis.
+- "Fintechs" só quando a notícia é sobre uma fintech ou o setor de fintechs, não para qualquer empresa de tecnologia.
 - Se nenhum rótulo se aplicar (esportes, celebridades, gadgets, política sem impacto econômico etc.), deixe a lista vazia.
 - "companies": da lista de candidatas de cada notícia, mantenha só os nomes que de fato se referem a uma empresa do setor financeiro/fintech citada na notícia. Descarte coincidências: pessoas (ex.: Lula, Warren Buffett), lugares, órgãos públicos, personagens, palavras comuns e nomes de veículos de imprensa (ex.: \"Valor\" não é a empresa Valora). Só mantenha uma empresa se o nome dela aparecer de fato no título ou no resumo.
 Responda SOMENTE com um array JSON, um objeto por notícia: [{"id": <id>, "labels": [...], "companies": [...]}]`;

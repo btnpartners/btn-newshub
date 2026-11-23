@@ -42,7 +42,7 @@ export function cleanText(s) {
 export function repairExcerpt(e) {
   if (!e) return e;
   let t = e;
-  if (/data-[a-z-]+="/.test(t) && t.includes('/>')) t = t.slice(t.lastIndexOf('/>') + 2);
+  if (/data-[a-z-]+="/.test(t)) t = t.includes('/>') ? t.slice(t.lastIndexOf('/>') + 2) : ''; // only caption text left: drop it
   t = t.replace(/\s*The post [\s\S]*? appeared first on [^.]*\.?\s*$/i, '');
   return t.replace(/\s+/g, ' ').trim();
 }

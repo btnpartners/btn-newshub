@@ -83,7 +83,7 @@ async function repairExcerpts(env) {
   const done = await env.DB.prepare("SELECT value FROM meta WHERE key = 'excerpt_repair'").first();
   if (done?.value === '2026-11-23a') return;
   const { results } = await env.DB.prepare(
-    "SELECT id, excerpt FROM articles WHERE (excerpt LIKE '%data-%="%' AND excerpt LIKE '%/>%') OR excerpt LIKE '%appeared first on%'"
+    `SELECT id, excerpt FROM articles WHERE (excerpt LIKE '%data-%="%' AND excerpt LIKE '%/>%') OR excerpt LIKE '%appeared first on%'`
   ).all();
   const stmts = results.map((r) => env.DB.prepare(
     "UPDATE articles SET excerpt = ?, label_status = 'pending', label_attempts = 0 WHERE id = ?"

@@ -23,12 +23,27 @@ function stripCdata(s) {
   return s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1');
 }
 
+// Tag matcher that skips over quoted attribute values (InfoMoney's <img> tags carry HTML inside data-* attributes).
+const TAG = /<\/?[a-z!][^>"']*(?:(?:"[^"]*"|'[^']*')[^>"']*)*>/gi;
+const stripTags = (t) => t.replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ').replace(TAG, ' ');
+
 export function cleanText(s) {
   if (!s) return '';
-  let t = stripCdata(s);
+  let t = stripTags(stripCdata(s));
   t = decodeEntities(t); // some feeds double-encode HTML
-  t = t.replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' ');
+  t = stripTags(t);
   t = decodeEntities(t);
+  // WordPress footer: "The post <title> appeared first on <site>."
+  t = t.replace(/\s*The post [\s\S]*? appeared first on [^.]*\.?\s*$/i, '');
+  return t.replace(/\s+/g, ' ').trim();
+}
+
+// Repairs excerpts stored before the fix above (leftover image markup and WordPress footer).
+export function repairExcerpt(e) {
+  if (!e) return e;
+  let t = e;
+  if (/data-[a-z-]+="/.test(t) && t.includes('/>')) t = t.slice(t.lastIndexOf('/>') + 2);
+  t = t.replace(/\s*The post [\s\S]*? appeared first on [^.]*\.?\s*$/i, '');
   return t.replace(/\s+/g, ' ').trim();
 }
 

@@ -1,4 +1,4 @@
-import { FEEDS, fetchFeed, titleKey } from './feeds.js';
+import { FEEDS, fetchFeed, titleKey, repairExcerpt } from './feeds.js';
 import { refreshCompaniesIfStale, loadCompanies, findCompanyMentions } from './companies.js';
 import { labelArticles, summarizeArticle, SUMMARY_VERSION } from './claude.js';
 import { LABEL_GROUPS, LABELS_VERSION } from './labels.js';
@@ -39,6 +39,7 @@ async function ensureSchema(env) {
   await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_articles_tkey ON articles (title_key)').run();
   await dedupeExisting(env);
   await applyVersions(env);
+  await repairExcerpts(env);
   schemaReady = true;
 }
 
@@ -75,6 +76,20 @@ async function dedupeExisting(env) {
   await env.DB.prepare(
     'DELETE FROM articles WHERE title_key IS NOT NULL AND id NOT IN (SELECT MIN(id) FROM articles WHERE title_key IS NOT NULL GROUP BY title_key)'
   ).run();
+}
+
+// One-off: clean InfoMoney excerpts stored with leftover image markup, then relabel them.
+async function repairExcerpts(env) {
+  const done = await env.DB.prepare("SELECT value FROM meta WHERE key = 'excerpt_repair'").first();
+  if (done?.value === '2026-11-23a') return;
+  const { results } = await env.DB.prepare(
+    "SELECT id, excerpt FROM articles WHERE (excerpt LIKE '%data-%="%' AND excerpt LIKE '%/>%') OR excerpt LIKE '%appeared first on%'"
+  ).all();
+  const stmts = results.map((r) => env.DB.prepare(
+    "UPDATE articles SET excerpt = ?, label_status = 'pending', label_attempts = 0 WHERE id = ?"
+  ).bind(repairExcerpt(r.excerpt), r.id));
+  stmts.push(env.DB.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('excerpt_repair', '2026-11-23a')"));
+  for (let k = 0; k < stmts.length; k += 90) await env.DB.batch(stmts.slice(k, k + 90));
 }
 
 async function ingest(env) {
